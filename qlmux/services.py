@@ -51,13 +51,13 @@ class SocketInfo( object ):
 
         def __repr__(self):
                 if self.recvdata is not None and len(self.recvdata) > 0:
-                        #str = "\nSocketInfo[%s:%s] %s\nRECV: %s" % (self.port, self.portname, self.porttype.name, len(self.recvdata))
-                        str = "\nXSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
+                        str = "\nSocketInfo[%s:%s] %s\nRECV: %s" % (self.port, self.portname, self.porttype.name, len(self.recvdata))
+                        #str = "\nSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
                 elif self.senddata is not None and len(self.senddata) > 0:
-                        #str = "\nSocketInfo[%s:%s] %s\nSEND: %s" % (self.port, self.portname, self.porttype.name, len(self.senddata))
-                        str = "\nXSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
+                        str = "\nSocketInfo[%s:%s] %s\nSEND: %s" % (self.port, self.portname, self.porttype.name, len(self.senddata))
+                        #str = "\nSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
                 else:
-                        str = "\nXSocketInfo[%s:%s] %s NO DATA" % (self.port, self.portname, self.porttype.name)
+                        str = "\nSocketInfo[%s:%s] %s NO DATA" % (self.port, self.portname, self.porttype.name)
                 return str
 
 
@@ -171,6 +171,25 @@ class Server( object):
                         client = self.socketMap.get(e)
                         print('Server:select:client:exceptional[%s:%s]:' % (clean.port, client.portname))
 
+                        if e in self.poolRecvSockets:
+                                print('Server:select:exceptional:data[%s:%s}: input exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
+                                self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(e))
+                                self.poolRecvSockets.remove(e)
+
+                        if e in output_fds:
+                                print('Server:select:exceptional:data[%s:%s}: output exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
+                                if e in self.statusSendSockets:
+                                        self.statusSendSockets.remove(e)
+                                elif e in self.printerSendSockets:
+                                        self.printerSendSockets.remove(e)
+                                        client.client.finished(True)
+
+                        e.close()
+                        self.socketMap.remove(e)
+
+                        continue
+
+
                 for r in readable:
 
                         # receive data coming into pool receive socket
@@ -241,11 +260,11 @@ class Server( object):
                                 w.close()
                                 self.socketMap.remove(w)
                                 continue
-                        
+
                         # have data, send it, 
                         try:
                                 sent = w.send(d, socket.MSG_DONTWAIT)
-                                
+
                         except:
                                 print('Server:select:writable[%s:%s]: WRITABLE ERROR %s' % (client.port, client.portname, socket.error))
                                 w.close()
