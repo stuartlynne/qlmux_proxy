@@ -58,7 +58,8 @@ class Printer( object ):
 		self.snmpsession = Session(hostname=name, community='public', version=1, timeout=.2, retries=0)
 
 
-	# update the printer status using SNMP
+	# updatestatus
+        # This is called from the SNMP process to update the printer status using SNMP
 	#
 	def updatestatus(self):
 
@@ -67,9 +68,7 @@ class Printer( object ):
 		try:
 			data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
 			self.snmpvalue = data.value
-			#print('Printer:updatestatus[%s] data' % (data))
 		except:
-			#print('Printer:updatestatus[%s] Exception' % (self.name))
 			self.snmpvalue = ''
 
 		if self.snmpvalue == '':
@@ -88,7 +87,6 @@ class Printer( object ):
 			self.snmpstatus = SNMPStatus.UNKNOWN
                         self.snmpinfo = 'Unknown'
 
-		#print('Printer:updatestatus[%s]: snmpvalue: %s snmpstatus: %s' % (self.name, self.snmpvalue, self.snmpstatus))
 		if oldstatus != self.snmpstatus:
 			print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
 
@@ -130,6 +128,10 @@ class Printer( object ):
 	def getJobData(self):
 		return list(self.currentjob.data)
 
+        # finished
+        # Called when the print job has been finished (sent to printer). The flag is set to True for 
+        # success and False for possible failure.
+        #
 	def finished(self, flag):
 		self.sending = False
 		#print('Printer:finished: %s' % (self))
@@ -138,6 +140,9 @@ class Printer( object ):
 		#print('Printer:finished: currentjob: %s' % (job))
 		pool = job.pool
 		#print('Printer:finished: pool: %s' % (pool))
+
+                # if there was a possible failure to deliver the print job, requeue to send again.
+                #
 		if not flag:
 			pool.recv(job.data)
 

@@ -94,16 +94,6 @@ class SocketMap( object ):
                 return res
                 #return "\nSockets: %s\n" % (self.sockets)
 
-#
-# Status
-#
-class Status( object ):
-
-        def __init__(self, port):
-                self.port = port
-                self.ds = []
-                self.sent = 0
-
 
 #
 # Create the server
@@ -119,9 +109,9 @@ class Server( object):
                 self.poolListenSockets = []             # list of listen sockets for pool ports
                 self.statusListenSockets = []           # list of listen sockets for status ports
 
-                self.poolRecvSockets = []
-                self.printerSendSockets = []
-                self.statusSendSockets = []
+                self.poolRecvSockets = []               # list of recv sockets for receiving a job for a pool
+                self.printerSendSockets = []            # list of send sockets for sending a job to a printer
+                self.statusSendSockets = []             # list of send sockets for return status information 
 
                 self.socketMap = SocketMap()
 
@@ -151,9 +141,6 @@ class Server( object):
                                 status += '[ %s: %s ]\n' % (p, v.snmpinfo)
                 return status
 
-        def server(self):
-                return self.server
-
 
         # startSendJob
         # initiate a connection to a printer to send a printer job to it
@@ -162,16 +149,15 @@ class Server( object):
 
                 print('Server:startsend[ %s] testport: %s printer: %s' % (printer.name, printer.testport, printer))
                 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                #self.poolRecvSockets.append(client)
                 self.printerSendSockets.append(client)
                 self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
                 client.setblocking(0)
-                client.connect_ex(('127.0.0.1', printer.testport))
+                #client.connect_ex(('127.0.0.1', printer.testport))
+                client.connect_ex((printer.name, 9100))
 
 
         def select(self):
 
-                #print('***\nServer:Listen self.socketMap: %s\n***' % (self.socketMap))
                 timeout = 10
 
                 input_fds = self.poolListenSockets + self.statusListenSockets + self.poolRecvSockets
@@ -186,6 +172,8 @@ class Server( object):
                         print('Server:select:client:exceptional[%s:%s]:' % (clean.port, client.portname))
 
                 for r in readable:
+
+                        # receive data coming into pool receive socket
                         if r in self.poolRecvSockets:
                                 connection = self.socketMap.get(r)
 
@@ -193,7 +181,6 @@ class Server( object):
                                 # the connection
                                 #
                                 try:
-                                        #data = r.recv(1024, socket.MSG_DONTWAIT)
                                         data = r.recv(1024)
                                         if data:
                                                 self.socketMap.appendrecvdata(r, data)
@@ -205,13 +192,13 @@ class Server( object):
                                         pass
 
                                 print('Server:select:readable:data[%s:%s}: no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
-                                #print('Server:select:readable:data[%s}: pool: %s data: %s' % (connection, connection.portname, self.socketMap.getallrecvdata(r) ))
                                 self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(r))
                                 self.poolRecvSockets.remove(r)
                                 self.socketMap.remove(r)
                                 r.close()
                                 continue
 
+                        # handle an incoming connection on a pool listen port
                         if r in self.poolListenSockets:
                                 client = self.socketMap.get(r)
                                 fd, client_address = r.accept()
@@ -220,6 +207,7 @@ class Server( object):
                                 print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
                                 continue
 
+                        # handle an incoming connection on a status listen port
                         if r in self.statusListenSockets:
 
                                 client = self.socketMap.get(r)
@@ -227,24 +215,20 @@ class Server( object):
 
                                 self.statusSendSockets.append(fd)
                                 d = [self.SNMPStatus(),]
-                                print('Server:select:readable:client[%s:%s]: SNMPStatus data: %s'  % (client.port, client.portname, d))
                                 self.socketMap.add(fd, 0, SocketType.SEND, client.portname, (d), None)
-
                                 print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
                                 continue
 
                         continue
 
                 for w in writeable:
-                        #print('Server:select:writeable: w: %s' % w)
                         client = self.socketMap.get(w)
-                        #print('Server:select:writeable: client: %s' % client)
 
                         d = client.getsenddata()
 
+                        # no data to send to this socket, close the connection
                         if d is None:
                                 print('Server:select:writable[%s:%s]: NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
-
 
                                 if w in self.statusSendSockets:
                                         self.statusSendSockets.remove(w)
@@ -258,14 +242,17 @@ class Server( object):
                                 self.socketMap.remove(w)
                                 continue
                         
+                        # have data, send it, 
                         try:
                                 sent = w.send(d, socket.MSG_DONTWAIT)
-                                #print('Server:select:writable[%s]: sending: %d sent: %d' % (client, len(d), sent))
+                                
                         except:
                                 print('Server:select:writable[%s:%s]: WRITABLE ERROR %s' % (client.port, client.portname, socket.error))
                                 w.close()
                                 self.printerSendSockets.remove(w)
-                                client.client.finished(True)
+
+                                # XXX should this be False to requeue?
+                                client.client.finished(False)
                                 self.socketMap.remove(w)
                         continue
 
