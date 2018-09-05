@@ -16,6 +16,8 @@ from printer import PrinterStatus, Printer
 from pool import Pool
 from status import StatusPort
 
+import datetime
+getTimeNow = datetime.datetime.now
 
 #
 # Track info on Sockets
@@ -116,6 +118,7 @@ class Server( object):
                 self.socketMap = SocketMap()
 
                 for p, v in pools.iteritems():
+                        print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
                         server.bind(('localhost', v.port))
@@ -124,6 +127,7 @@ class Server( object):
                         self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
 
                 for p, v in statusPorts.iteritems():
+                        print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
                         server.bind(('localhost', v.port))
@@ -131,7 +135,7 @@ class Server( object):
                         self.statusListenSockets.append(server)
                         self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
 
-                print('Server:__init__[] self.socketMap: %s' % (self.socketMap))
+                #print('Server:__init__[] self.socketMap: %s' % (self.socketMap))
 
 
         def SNMPStatus(self):
@@ -147,13 +151,13 @@ class Server( object):
         #
         def startSendJob(self, printer):
 
-                print('Server:startsend[ %s] testport: %s printer: %s' % (printer.name, printer.testport, printer))
+                print('%s [%s] %s:%s SENDING' % (getTimeNow().strftime('%H:%M:%S'), printer.name, printer.jobsfinished, printer.errors))
                 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.printerSendSockets.append(client)
                 self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
                 client.setblocking(0)
-                #client.connect_ex(('127.0.0.1', printer.testport))
-                client.connect_ex((printer.name, 9100))
+                client.connect_ex(('127.0.0.1', printer.testport))
+                #client.connect_ex((printer.name, 9100))
 
 
         def select(self):
@@ -210,7 +214,7 @@ class Server( object):
                                 except:
                                         pass
 
-                                print('Server:select:readable:data[%s:%s}: no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
+                                #print('Server:select:readable:data[%s:%s}: no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
                                 self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(r))
                                 self.poolRecvSockets.remove(r)
                                 self.socketMap.remove(r)
@@ -223,7 +227,8 @@ class Server( object):
                                 fd, client_address = r.accept()
                                 self.poolRecvSockets.append(fd)
                                 self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
-                                print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                print('%s [%s:%s]: %s PRINT'  % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, client_address))
                                 continue
 
                         # handle an incoming connection on a status listen port
@@ -235,7 +240,8 @@ class Server( object):
                                 self.statusSendSockets.append(fd)
                                 d = [self.SNMPStatus(),]
                                 self.socketMap.add(fd, 0, SocketType.SEND, client.portname, (d), None)
-                                print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                print('[%s:%s]: %s STATUS'  % (client.port, client.portname, client_address))
                                 continue
 
                         continue
@@ -247,7 +253,7 @@ class Server( object):
 
                         # no data to send to this socket, close the connection
                         if d is None:
-                                print('Server:select:writable[%s:%s]: NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
+                                #print('Server:select:writable[%s:%s]: NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
 
                                 if w in self.statusSendSockets:
                                         self.statusSendSockets.remove(w)
@@ -266,7 +272,7 @@ class Server( object):
                                 sent = w.send(d, socket.MSG_DONTWAIT)
 
                         except:
-                                print('Server:select:writable[%s:%s]: WRITABLE ERROR %s' % (client.port, client.portname, socket.error))
+                                print('%s [%s:%s]: WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, socket.error))
                                 w.close()
                                 self.printerSendSockets.remove(w)
 

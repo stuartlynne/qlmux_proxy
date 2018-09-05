@@ -25,7 +25,7 @@ def main():
             'ql710w1': Printer('ql710w1', 9101),
             'ql710w2': Printer('ql710w2', 9102),
             'ql710w3': Printer('ql710w3', 9103),
-            'ql1060n0': Printer('192.168.40.99', 9106),
+            #'ql1060n0': Printer('192.168.40.99', 9106),
             'ql1060n1': Printer('ql1060n1', 9104),
             'ql1060n2': Printer('ql1060n2', 9105),
         }

@@ -14,6 +14,8 @@ from time import sleep
 from snmp import SNMPStatus
 from printer import PrinterStatus, Printer
 
+import datetime
+getTimeNow = datetime.datetime.now
 
 #
 # Printer Pools
@@ -44,7 +46,7 @@ class Pool( object ):
 	#
 	def recv(self, data):
 		self.queue.put(data)
-		print('Pool:recv: pool: %s data: %s ' % (self.name, self.queue ))
+		#print('Pool:recv: pool: %s data: %s ' % (self.name, self.queue ))
 
 
 	# find the best printer from the list provided
@@ -80,12 +82,12 @@ class Pool( object ):
 		if printer is None:
 			printer = self.bestprinter(self.backups)
 			if printer is not None:
-				print('Pool:forward[%s] using backup printer: %s' % (self.name, printer.name))
+				print('%s [%s] %s FORWARD BACKUP' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
 		else:
-			print('Pool:forward[%s] using printer: %s' % (self.name, printer.name))
+			print('%s [%s] %s FORWARD' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
 
 		if printer is None:
-			print('Pool:forward[%s] cannot find printer' % (self.name))
+			print('%s [%s] CANNOT FIND PRINTER' % (getTimeNow().strftime('%H:%M:%S'), self.name))
 			return
 
 		self.lastprinter = printer

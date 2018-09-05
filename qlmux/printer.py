@@ -53,7 +53,8 @@ class Printer( object ):
 		self.currentjob = None
 		self.senddata = None
 		self.sending = False
-		self.count = 0
+		self.jobsfinished = 0
+		self.errors = 0
 
 		self.snmpsession = Session(hostname=name, community='public', version=1, timeout=.2, retries=0)
 
@@ -145,6 +146,9 @@ class Printer( object ):
                 #
 		if not flag:
 			pool.recv(job.data)
+                        self.errors += 1
+                else:
+                        self.jobsfinished += 1
 
 	def __repr__(self):
 		return "Printer[%s] status: %s snmpstatus: %s printjobs: %d\n" % (
