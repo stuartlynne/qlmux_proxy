@@ -156,8 +156,8 @@ class Server( object):
                 self.printerSendSockets.append(client)
                 self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
                 client.setblocking(0)
-                client.connect_ex(('127.0.0.1', printer.testport))
-                #client.connect_ex((printer.name, 9100))
+                #client.connect_ex(('127.0.0.1', printer.testport))
+                client.connect_ex((printer.name, 9100))
 
 
         def select(self):
@@ -270,9 +270,11 @@ class Server( object):
                         # have data, send it, 
                         try:
                                 sent = w.send(d, socket.MSG_DONTWAIT)
+                                #sent = w.send(d)
 
-                        except:
-                                print('%s [%s:%s]: WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, socket.error))
+                        except socket.error as e:
+                                print('%s [%s:%s]: len: %d WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), 
+                                    client.port, client.portname, len(d), e))
                                 w.close()
                                 self.printerSendSockets.remove(w)
 
