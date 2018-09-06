@@ -1,0 +1,6 @@
+#!/bin/bash
+
+
+netcat 127.0.0.1 9000 || echo qlstatus: QLMuxd not running
+
+
