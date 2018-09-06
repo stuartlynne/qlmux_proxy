@@ -21,7 +21,8 @@ with open("README.md", "rb") as f:
 
 setup(
     name = "qlmux",
-    packages = ["qlmux"],
+    packages = ["qlmux",],
+    install_requires = [ "enum34", "easysnmp", ],
     entry_points = {
         "console_scripts": ['qlmuxd = qlmux.qlmuxd:main']
         },

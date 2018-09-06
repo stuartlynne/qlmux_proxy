@@ -64,3 +64,23 @@ This can be used in a script to return error information to a user.
 > status = $(netcat 127.0.0.1 9000)
 
 
+
+
+## Required packages
+
+#### Linux packages
+  - libpython-dev
+  - libsnmp-dev
+
+### Python packages
+  - enum34
+  - easysnmp
+  
+
+## Other Programs
+
+  - qlprint (modified version for printing to stdout)
+  - init.d script
+  - libpng16.so.16:
+
+
