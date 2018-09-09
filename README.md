@@ -71,7 +71,7 @@ qlmuxd will look for a qlmuxd.cfg file in the current directory, and then in
 Sample.
  
       // QLMuxd configuration
-      // This is for a fiver printer configuration.
+      // This is for a five printer configuration.
       // There are four printer pools.
       //
       {
