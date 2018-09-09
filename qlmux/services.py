@@ -63,7 +63,7 @@ class SocketInfo( object ):
                 return str
 
 
-# 
+#
 # SocketMap
 # Keep track of open sockets 
 #
@@ -141,7 +141,7 @@ class Server( object):
         def SNMPStatus(self):
                 status = ''
                 for p, v in self.printers.iteritems():
-                        if v.snmpstatus != SNMPStatus.READY:
+                        if v.snmpstatus != SNMPStatus.READY and v.snmpstatus != SNMPStatus.BUSY and v.snmpstatus != SNMPStatus.PRINTING:
                                 status += '[ %s: %s ]\n' % (p, v.snmpinfo)
                 return status
 
@@ -241,7 +241,7 @@ class Server( object):
                                 d = [self.SNMPStatus(),]
                                 self.socketMap.add(fd, 0, SocketType.SEND, client.portname, (d), None)
                                 #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
-                                print('[%s:%s]: %s STATUS'  % (client.port, client.portname, client_address))
+                                #print('[%s:%s]: %s STATUS'  % (client.port, client.portname, client_address))
                                 continue
 
                         continue

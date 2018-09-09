@@ -17,8 +17,10 @@ class SNMPStatus (Enum):
 	UNKNOWN = 0
 	NOTAVAILABLE = 1
 	READY = 2
-	COVEROPEN = 3
-	ERROR = 4
+	BUSY = 3
+        PRINTING = 4
+	COVEROPEN = 5
+	ERROR = 6
 
 
 #

@@ -78,6 +78,12 @@ class Printer( object ):
 		elif re.match(r'READY', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.READY
                         self.snmpinfo = 'Ready'
+		elif re.match(r'BUSY', self.snmpvalue):
+			self.snmpstatus = SNMPStatus.BUSY
+                        self.snmpinfo = 'Busy'
+		elif re.match(r'PRINTING', self.snmpvalue):
+			self.snmpstatus = SNMPStatus.PRINTING
+                        self.snmpinfo = 'Printing'
 		elif re.match(r'COVER OPEN', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.COVEROPEN
                         self.snmpinfo = 'Printer Cover Open, close cover'
@@ -85,11 +91,13 @@ class Printer( object ):
 			self.snmpstatus = SNMPStatus.ERROR
                         self.snmpinfo = 'Error, check if jammed or out of labels'
 		else:
+			print('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
                         self.snmpinfo = 'Unknown'
 
 		if oldstatus != self.snmpstatus:
-			print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
+			#print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
+                        print('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
 
 	# add a print job to the print jobs queue
 	#

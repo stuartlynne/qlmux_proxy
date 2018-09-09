@@ -7,6 +7,10 @@ import socket
 import sys
 import Queue
 import datetime
+import jsoncfg
+import json
+
+
 from time import sleep
 
 
@@ -18,28 +22,74 @@ from .snmp import SNMPStatus, SNMPServer
 
 getTimeNow = datetime.datetime.now
 
+
 def main():
-        Ports = [9001, 9002, 9003, 9004]
 
-        Printers = {
-            'ql710w1': Printer('ql710w1', 9101),
-            'ql710w2': Printer('ql710w2', 9102),
-            'ql710w3': Printer('ql710w3', 9103),
-            #'ql1060n0': Printer('192.168.40.99', 9106),
-            'ql1060n1': Printer('ql1060n1', 9104),
-            'ql1060n2': Printer('ql1060n2', 9105),
-        }
+        cfgs = ['qlmuxd.cfg', '/usr/local/etc/qlmuxd.cfg']
 
-        Pools = {
-            'small1': Pool('small1', 9001, (Printers['ql710w1'], Printers['ql710w2']), (Printers['ql710w3'],)),
-            'small2': Pool('small2', 9002, (Printers['ql710w3'], Printers['ql710w2']), (Printers['ql710w1'],)),
-            'large1': Pool('large1', 9003, (Printers['ql1060n1'], ), (Printers['ql1060n2'],)),
-            'large2': Pool('large2', 9004, (Printers['ql1060n2'], ), (Printers['ql1060n1'],)),
-        }
+        config = None
+        for c in cfgs:
+                try:
+                        config = jsoncfg.load_config(c)
+                        break
+                except:
+                        continue
 
-        StatusPorts = {
-            'snmp': StatusPort('snmp', 9000),
-        }
+        if config is None:
+                print('QLMuxd: error cannot open either: %s' % cfgs)
+                exit(1)
+
+        Printers = dict()
+        Pools = dict()
+        StatusPorts = dict()
+
+        ports = config.QLMux_Ports()
+        print('Config: Ports: %s' % (ports))
+        for v in ports:
+                print('Config: Port: %s' % (v))
+
+        for QLMux_Printer in config.QLMux_Printers:
+                print('Config: Printer: name: %s port: %s' % (QLMux_Printer.name(), QLMux_Printer.port()))
+                Printers[QLMux_Printer.name()] = Printer(QLMux_Printer.name(), QLMux_Printer.port());
+
+        for QLMux_Pool in config.QLMux_Pools:
+
+                print('Config: Pool: name: %s' % (QLMux_Pool))
+
+                primaries = QLMux_Pool.primaries()
+                backups = QLMux_Pool.backups()
+                print('Config: Pool: name: %s port: %s primaries: %s backups: %s' % (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups))
+
+                Pools[QLMux_Pool.name()] = Pool(
+                        QLMux_Pool.name(),
+                        QLMux_Pool.listen(),
+                        [ Printers[p] for p in primaries],
+                        [ Printers[b] for b in backups], )
+
+
+        for QLMux_StatusPort in config.QLMux_StatusPorts:
+                StatusPorts[QLMux_StatusPort.name()] = StatusPort(QLMux_StatusPort.name(), QLMux_StatusPort.port())
+
+
+#        Printers = {
+#            'ql710w1': Printer('ql710w1', 9101),
+#            'ql710w2': Printer('ql710w2', 9102),
+#            'ql710w3': Printer('ql710w3', 9103),
+#            #'ql1060n0': Printer('192.168.40.99', 9106),
+#            'ql1060n1': Printer('ql1060n1', 9104),
+#            'ql1060n2': Printer('ql1060n2', 9105),
+#        }
+#
+#        OldPools = {
+#            'small1': Pool('small1', 9001, (Printers['ql710w1'], Printers['ql710w2']), (Printers['ql710w3'],)),
+#            'small2': Pool('small2', 9002, (Printers['ql710w3'], Printers['ql710w2']), (Printers['ql710w1'],)),
+#            'large1': Pool('large1', 9003, (Printers['ql1060n1'], ), (Printers['ql1060n2'],)),
+#            'large2': Pool('large2', 9004, (Printers['ql1060n2'], ), (Printers['ql1060n1'],)),
+#        }
+#
+#        StatusPorts = {
+#            'snmp': StatusPort('snmp', 9000),
+#        }
 
 
 
