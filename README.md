@@ -7,13 +7,13 @@ and redundancy.
 
 Printer pools are set up listing available printers, both a primary set and backup set, with an associated TCP port that will 
 be used to accept label jobs:
-
+>
 >  small1: 9001, (ql710w1, ql710w2), (ql710w3)
 >  small2: 9002, (ql710w3, ql710w2), (ql710w1)
 >  large1: 9003, (ql1060n1), (ql1060n2)
 >  large2: 9004, (ql1060n2), (ql1060n1)
 >  status: 9000
-
+>
 In the above there are two pools of small label printers that utilize three printers. One printer is shared to both pools, with the non-shared printers used as backups.  
   
 There are two pools of large label printers, each with a single printer as primary and the other pools printer as backup.
@@ -69,7 +69,7 @@ qlmuxd will look for a qlmuxd.cfg file in the current directory, and then in
 /usr/local/etc/qlmuxd.cfg.
 
 Sample.
-
+>
 >  // QLMuxd configuration
 >  // This is for a fiver printer configuration.
 >  // There are four printer pools.
@@ -106,7 +106,7 @@ Sample.
 >              {name: "snmp", port: 9000 },
 >          ],
 >  }
-
+>
 
 
 
