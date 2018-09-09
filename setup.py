@@ -22,7 +22,7 @@ with open("README.md", "rb") as f:
 setup(
     name = "qlmux",
     packages = ["qlmux",],
-    install_requires = [ "enum34", "easysnmp", ],
+    install_requires = [ "enum34", "easysnmp", "json-cfg"],
     entry_points = {
         "console_scripts": ['qlmuxd = qlmux.qlmuxd:main']
         },
@@ -31,5 +31,5 @@ setup(
     long_description = long_descr,
     author = "Stuart Lynne",
     author_email = "stuart.lynne@gmail.com",
-    url = "http://gehrcke.de/2014/02/distributing-a-python-command-line-application",
+    url = "http://bitbucket.org/stuartlynne/qlmux",
     )
