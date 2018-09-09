@@ -8,11 +8,11 @@ and redundancy.
 Printer pools are set up listing available printers, both a primary set and backup set, with an associated TCP port that will 
 be used to accept label jobs:
 >
->  small1: 9001, (ql710w1, ql710w2), (ql710w3)
->  small2: 9002, (ql710w3, ql710w2), (ql710w1)
->  large1: 9003, (ql1060n1), (ql1060n2)
->  large2: 9004, (ql1060n2), (ql1060n1)
->  status: 9000
+>     small1: 9001, (ql710w1, ql710w2), (ql710w3)
+>     small2: 9002, (ql710w3, ql710w2), (ql710w1)
+>     large1: 9003, (ql1060n1), (ql1060n2)
+>     large2: 9004, (ql1060n2), (ql1060n1)
+>     status: 9000
 >
 In the above there are two pools of small label printers that utilize three printers. One printer is shared to both pools, with the non-shared printers used as backups.  
   
@@ -54,11 +54,11 @@ not in the ready state will not be used. Brother QL printers typically have four
 
 A user friendly text showing any printers in error can be retrived from the specified status port. 
 
-> [ ql710w1: Printer Cover Open, close cover ]
-> [ ql1060n0: Not Available, check if powered off or not plugged in ]
+>    [ ql710w1: Printer Cover Open, close cover ]
+>    [ ql1060n0: Not Available, check if powered off or not plugged in ]
 
 
-This can be used in a script to return error information to a user.
+T    is can be used in a script to return error information to a user.
 
 > netcat 127.0.0.1 9001 < label.bin
 > status = $(netcat 127.0.0.1 9000)
@@ -70,42 +70,42 @@ qlmuxd will look for a qlmuxd.cfg file in the current directory, and then in
 
 Sample.
 >
->  // QLMuxd configuration
->  // This is for a fiver printer configuration.
->  // There are four printer pools.
->  //
->  {
->  
->          // These are the pool listen ports
->          //
->          QLMux_Ports: [9001, 9002, 9003, 9004],
->  
->          // These are the printer destinations
->          //
->          QLMux_Printers: [
->               {name:"ql710w1",  port:9101},
->               {name:"ql710w2",  port:9102},
->               {name:"ql710w3",  port:9103},
->               {name:"ql1060n1", port:9104},
->               {name:"ql1060n2", port:9105},
->          ],
->  
->          // These are the printer pools.
->          // Pools map jobs directed at the listen port to the primary printers 
->          // or if necessary the backup printers.
->          QLMux_Pools: [
->              {name:"small1", listen:9001, primaries:["ql710w1", "ql710w2"], backups:["ql710w3", ], },
->              {name:"small2", listen:9002, primaries:["ql710w3", "ql710w2"], backups:["ql710w1", ], },
->              {name:"large1", listen:9003, primaries:["ql1060n1",         ], backups:["ql1060n2",], },
->              {name:"large2", listen:9004, primaries:["ql1060n2",         ], backups:["ql1060n1",], },
->          ],
->  
->          // This is the status port
->          //
->          QLMux_StatusPorts: [
->              {name: "snmp", port: 9000 },
->          ],
->  }
+>     // QLMuxd configuration
+>     // This is for a fiver printer configuration.
+>     // There are four printer pools.
+>     //
+>     {
+>     
+>             // These are the pool listen ports
+>             //
+>             QLMux_Ports: [9001, 9002, 9003, 9004],
+>     
+>             // These are the printer destinations
+>             //
+>             QLMux_Printers: [
+>                  {name:"ql710w1",  port:9101},
+>                  {name:"ql710w2",  port:9102},
+>                  {name:"ql710w3",  port:9103},
+>                  {name:"ql1060n1", port:9104},
+>                  {name:"ql1060n2", port:9105},
+>             ],
+>     
+>             // These are the printer pools.
+>             // Pools map jobs directed at the listen port to the primary printers 
+>             // or if necessary the backup printers.
+>             QLMux_Pools: [
+>                 {name:"small1", listen:9001, primaries:["ql710w1", "ql710w2"], backups:["ql710w3", ], },
+>                 {name:"small2", listen:9002, primaries:["ql710w3", "ql710w2"], backups:["ql710w1", ], },
+>                 {name:"large1", listen:9003, primaries:["ql1060n1",         ], backups:["ql1060n2",], },
+>                 {name:"large2", listen:9004, primaries:["ql1060n2",         ], backups:["ql1060n1",], },
+>             ],
+>     
+>             // This is the status port
+>             //
+>             QLMux_StatusPorts: [
+>                 {name: "snmp", port: 9000 },
+>             ],
+>     }
 >
 
 
