@@ -5,6 +5,8 @@
 *QLMux* is designed to support label printing to Brother QL printers that are set up in pools to allow for increased throughput 
 and redundancy.
 
+This was implemented to support label printing from RaceDB. 
+
 QLMuxd loads a configuration file:
 
         1. ./qlmuxd.cfg
@@ -34,7 +36,9 @@ There are two pools of large label printers, each with a single printer as prima
 
 Incoming jobs are accepted on the specified port and forwarded to port 9100 on one of the associated printers.
 
-The incoming label print jobs are multiplexed across any working printers in the primary list. If non of the printers in the primary list are working the backup printer is used.
+The incoming label print jobs are multiplexed across any working printers in the primary list. 
+If non of the printers in the primary list are working the backup printer is used. Backup printers
+are only used when all primary printers are in an error mode.
 
 The binary data (typically under 100 kbytes) is kept in memory until it can be delivered. The intended
 design is for about a half dozen printers with a load of about one label per second per printer maximum.
@@ -45,6 +49,7 @@ A status is kept for each printer so that fall over can be used to do the follow
   2. Ensure that printers that are not available or not working are not used
   3. Minimize printing delays
   4. Ensure that all labels are printed, duplicates are allowed.
+  5. Ensure that the proper media is loaded for each printer.
 
 Depending on the printer status, when data has arrived and is in the DataQueue, QLMux will attempt
 to deliver to the first available printer in the associated Pool. 
@@ -74,10 +79,13 @@ A user friendly text showing any printers in error can be retrived from the spec
      [ ql1060n0: Not Available, check if powered off or not plugged in ]
 
 
-T    is can be used in a script to return error information to a user.
+This can be used in a script to return error information to a user.
 
      netcat 127.0.0.1 9001 < label.bin
      status = $(netcat 127.0.0.1 9000)
+
+There is also a qlstatus script to get the status data.
+
 
 ## Configuration
 
@@ -140,6 +148,7 @@ Sample.
 ## Other Programs
 
   - qlprint (modified version for printing to stdout)
+  - brother_ql
   - init.d script
   - libpng16.so.16:
 
