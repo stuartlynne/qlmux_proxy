@@ -1,0 +1,213 @@
+#!/bin/bash
+#
+# RaceDB Labels Script
+#
+# Usage
+# In the RaceDB System Info Edit screen:
+#
+#   Cmd used to print Bib Tag (parameter is PDF file)
+#
+#       [  /home/racedb/bin/LABELS $1 ]
+# 
+
+#
+# The arguement provided is the file name and will contain information about what is to 
+# be printed. E.g.:
+#
+#       230489203498023809_bib-356_port-5098_antenna-2_type-Frame.pdf
+#
+# "type" is one of Frame, Body, Shoulder and Emergency.
+# "port" is the server port.
+# "antenna" is the antenna of the user.
+#
+# The combination of server port and antenna allows different printers to 
+# be used for different registration stations. The server port refers to
+# the TCP port that the server responds to, e.g. 8000 or 8001 etc.
+#
+
+# The antenna ports are used to split the output across two sets of printer pools
+# for the left and right side of the registration tables. 
+#
+# The pools are implemented in qlmux. Each pool has a list of primary printers and a backup printer. 
+# The pools are access by sending the data to the desginated port.
+#
+# Antenna 1 and 2:
+#   small1 - 9101, (ql710w1, ql710w2), (ql710w3)
+#   large1 - 9103, (ql1060n1), (ql1060n2)
+#
+# Antenna 3 and 4:
+#   small2 - 9102, (ql710w3, ql710w2), (ql710w1)
+#   large2 - 9104, (ql1060n2), (ql1060n1)
+
+# Currently we are converting the pdf on stdin to png files using qlps2raster. That
+# in turn uses ghostscript and qlprint to produce Brother QL raster on stdout.
+#
+
+#
+# Currently as a backup only. 
+#
+# For Linux we will have one or more printers added to the CUPS printing system. E.g.:
+#
+#   Printers: 
+#       1. QL710W1 - first 2x4 printer
+#       2. QL710W2 - second 2x4  printer
+#       3. QL1060n1 - first 4x6 printer
+#       4. QL1060n1 - second 4x6 printer
+#   Classes:
+#       1. QL710W 
+#           - QL710W1
+#           - QL710W2
+#       2. QL1060N
+#           - QL1060N1
+#           - QL1060N2
+#
+# Multiple printers of each type is not required. But if available it improves throughput.
+# Also if one printer runs out of labels the other continues to work alone until it is refilled.
+# 
+# The alternative with multiple printers is to allocate them to different registration
+# tables. E.g. table with Antenna 0 and 1 get first printer and the table with Antenna 2 and 3
+# get the second printer.
+#
+# 
+
+# debug
+#echo $1
+#set -x
+
+# split file name apart to get information on who requested the label and the type of label.
+#
+
+PATH=$PATH:../bin
+
+STDERR() {
+        /bin/echo -en $* "\n" 1>&2
+}
+
+
+onerror() {
+        exit 1
+}
+killme() {
+        figlet -f banner ERROR 1>&2
+        /bin/echo -en "\n\n$*\n\n" 1>&2
+        kill -1 $$ 2>&1 > /dev/null
+}
+
+trap onerror 1 2 9 15
+
+
+
+for i in $(echo $1 | sed -e 's/.*pdfs\///' -e 's/_/ /g'); do
+case $i in
+bib-*)
+    BIB=$i
+    ;;
+port-*)
+    PORT=$i
+    ;;
+antenna-*)
+    ANTENNA=$i
+    ;;
+type-*)
+    TYPE=$i
+    ;;
+*.pdf)
+    FILE=$i
+    ;;
+esac
+done
+
+
+# use antenna information to determine what printer pools to use
+#
+case ${ANTENNA} in
+
+antenna-0 | antenna-1 | antenna-2)
+    SMALL=9001
+    LARGE=9003
+    ;;
+antenna-3 | antenna-4 | *)
+    SMALL=9002
+    LARGE=9004
+    ;;
+esac
+
+
+DIR=$(dirname $0)
+ARG0=$(basename $0)
+
+
+# use the type information to determine what label size to use.
+#
+case ${TYPE} in
+type-Tag | type-Frame | type-Shoulder | type-Emergency )
+    PRINTERCLASS=QL710W
+    QLPS2RASTER=${DIR}/qlps2raster_62x100
+    POOL=$SMALL
+    PAGES=""
+    ;;
+type-Body)
+    PRINTERCLASS=QL1060N
+    QLPS2RASTER=${DIR}/qlps2raster_102x152
+    POOL=$LARGE
+    PAGES=""
+    ;;
+*)
+    PRINTERCLASS=QL1060N
+    QLPS2RASTER=${DIR}/qlps2raster_102x152
+    POOL=$LARGE
+    PAGES=""
+    ;;
+esac
+
+(date; 
+/bin/echo $0: $*
+/bin/echo "DIR: $DIR"
+/bin/echo "ARG0: $ARG0"
+/bin/echo "BIB: $BIB"
+/bin/echo "PORT: $PORT"
+/bin/echo "ANTENNA: $ANTENNA"
+/bin/echo "TYPE: $TYPE"
+/bin/echo "FILE: $FILE"
+/bin/echo "SMALL: $SMALL"
+/bin/echo "LARGE: $LARGE"
+
+) >> /tmp/LABELS.txt
+
+#(
+#echo PORT: $PORT
+#echo ANTENNA: $ANTENNA
+#echo TYPE: $TYPE
+#echo FILE: $FILE
+#echo SMALL: $SMALL
+#echo LARGE: $LARGE
+#) 1>&2
+
+
+#STATUS=$(netcat -w 1 127.0.0.1 9000  < /dev/null)
+STATUS=$(qlstatus -q < /dev/null)
+
+RC=$?
+
+if [ "$RC" -ne 0 ] ; then
+    lp -d ${PRINTERCLASS} ${PAGES}
+    echo
+    killme QLMux not running, could not get status, lp used
+fi
+
+if [ -n "${STATUS}" ] ; then
+    #figlet -f banner Check Printers
+    echo Check Printers!
+    echo "${STATUS}"
+
+fi
+
+
+# PDF is on STDIN
+
+#${QLPS2RASTER} | netcat  127.0.0.1 ${POOL} || killme QLMux not running, could not send job
+${QLPS2RASTER} 127.0.0.1 ${POOL} || killme QLMux not running, could not send job
+
+
+exit 0
+
