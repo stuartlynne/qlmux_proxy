@@ -1,6 +1,6 @@
 #!/usr/bin/python2.7
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 import select
 import socket
@@ -33,6 +33,7 @@ def main():
                         config = jsoncfg.load_config(c)
                         break
                 except:
+                        print('QLMuxd: error cannot open %s' % c)
                         continue
 
         if config is None:
@@ -49,8 +50,8 @@ def main():
                 print('Config: Port: %s' % (v))
 
         for QLMux_Printer in config.QLMux_Printers:
-                print('Config: Printer: name: %s port: %s' % (QLMux_Printer.name(), QLMux_Printer.port()))
-                Printers[QLMux_Printer.name()] = Printer(QLMux_Printer.name(), QLMux_Printer.port());
+                print('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
+                Printers[QLMux_Printer.name()] = Printer(QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model());
 
         for QLMux_Pool in config.QLMux_Pools:
 
@@ -63,6 +64,7 @@ def main():
                 Pools[QLMux_Pool.name()] = Pool(
                         QLMux_Pool.name(),
                         QLMux_Pool.listen(),
+                        QLMux_Pool.media(),
                         [ Printers[p] for p in primaries],
                         [ Printers[b] for b in backups], )
 

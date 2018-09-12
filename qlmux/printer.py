@@ -41,12 +41,15 @@ class Job( object ):
 #
 class Printer( object ):
 
-	def __init__(self, name, testport):
+	def __init__(self, name, testport, model):
 		self.name = name
 		self.testport = testport
+		self.model = model
 		self.status = PrinterStatus.UNKNOWN
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
+		self.snmpmedia = ''
+		self.snmpmodel = ''
 		self.fd = None
 		self.pool = None
 		self.printjobs = []
@@ -72,6 +75,18 @@ class Printer( object ):
 		except:
 			self.snmpvalue = ''
 
+		try:
+			data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
+                        self.snmpmedia = data.value
+		except:
+			self.snmpmedia = ''
+
+		try:
+			data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
+                        self.snmpmodel = data.value
+		except:
+			self.model = ''
+
 		if self.snmpvalue == '':
 			self.snmpstatus = SNMPStatus.NOTAVAILABLE
                         self.snmpinfo = 'Not Available, check if powered off or not plugged in'
@@ -89,7 +104,7 @@ class Printer( object ):
                         self.snmpinfo = 'Printer Cover Open, close cover'
 		elif re.match(r'ERROR', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.ERROR
-                        self.snmpinfo = 'Error, check if jammed or out of labels'
+                        self.snmpinfo = 'Error, jammed, out of labels or wrong labels'
 		else:
 			print('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
@@ -159,7 +174,7 @@ class Printer( object ):
                         self.jobsfinished += 1
 
 	def __repr__(self):
-		return "Printer[%s] status: %s snmpstatus: %s printjobs: %d\n" % (
-			self.name, self.status, self.snmpstatus, len(self.printjobs))
+		return "Printer[%s] status: %s snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
+			self.name, self.status, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
 
 

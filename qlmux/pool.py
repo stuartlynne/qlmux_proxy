@@ -27,12 +27,13 @@ getTimeNow = datetime.datetime.now
 #
 class Pool( object ):
 
-	def __init__(self, name, port, printers, backups):
+	def __init__(self, name, port, media, printers, backups):
 		self.name = name
 		self.printers = printers
 		self.backups = backups
 		self.queue = Queue()
 		self.port = port
+		self.media = media
 		self.listenfd = None
 		self.datafds = []
 		self.lastprinter = None
@@ -55,9 +56,11 @@ class Pool( object ):
 		t = None
 		for p in printers:
 			#print('Pool:process[%s] printer: %s' % (self.name, p))
-			#print('Pool:bestprinter[%s] printer: %s status: %s snmp: %s jobs: %s' % (self.name, p.name, p.status, p.snmpstatus, len(p.printjobs)))
+			print('Pool:bestprinter[%s] printer: %s status: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.status, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
 			if p.status == PrinterStatus.NOTAVAILABLE: continue
 			if p.snmpstatus != SNMPStatus.READY: continue
+                        if not re.match(self.media, p.snmpmedia): continue
+                        if p.snmpmodel != p.model: continue
 			if t is None:
 				t = p
 				continue
