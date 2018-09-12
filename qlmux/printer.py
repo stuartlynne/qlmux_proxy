@@ -48,8 +48,8 @@ class Printer( object ):
 		self.status = PrinterStatus.UNKNOWN
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
-		self.snmpmedia = ''
-		self.snmpmodel = ''
+		self.snmpmedia = 'UNKNOWN MEDIA'
+		self.snmpmodel = 'UNKNOWN MODEL'
 		self.fd = None
 		self.pool = None
 		self.printjobs = []
