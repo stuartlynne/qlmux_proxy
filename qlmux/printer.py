@@ -12,6 +12,11 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
+
+# Set encoding default for python 2.7
+#
+# -*- coding: utf-8 -*-
+
 getTimeNow = datetime.datetime.now
 
 
@@ -45,7 +50,6 @@ class Printer( object ):
 		self.name = name
 		self.testport = testport
 		self.model = model
-		self.status = PrinterStatus.UNKNOWN
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
 		self.snmpmedia = 'UNKNOWN MEDIA'
@@ -120,10 +124,6 @@ class Printer( object ):
 		self.printjobs.append(Job(pool, data))
 		return
 
-	def status(self):
-		print('value: %s' % status.value)
-		return self.status
-
 	# check if there are jobs queued to this printer and we are currently active
 	#
 	def checkforjobs(self):
@@ -174,7 +174,7 @@ class Printer( object ):
                         self.jobsfinished += 1
 
 	def __repr__(self):
-		return "Printer[%s] status: %s snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
-			self.name, self.status, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
+		return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
+			self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
 
 

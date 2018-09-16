@@ -143,8 +143,8 @@ class Server( object):
                 for p, v in self.printers.iteritems():
                         status += '[ %s: %s ]\n' % (p, v.snmpinfo)
 
-                        if v.model != v.snmpmodel:
-                                status += '[ %s: %s ] Wrong Model %s\n' % (p, v.model, v.snmpmodel)
+                        #if v.model != v.snmpmodel:
+                        #        status += '[ %s: %s ] Wrong Model %s\n' % (p, v.model, v.snmpmodel)
 
 
                 for p1, v1 in self.poolPorts.iteritems():
@@ -282,6 +282,17 @@ class Server( object):
                                 continue
 
                         # have data, send it, 
+
+                        # XXX we are seeing problems here
+                        #Traceback (most recent call last):
+                        #    Traceback (most recent call last):
+                        #      File "/usr/local/bin/qlmuxd", line 11, in <module>
+                        #        load_entry_point('qlmux==0.3.4', 'console_scripts', 'qlmuxd')()
+                        #      File "/usr/local/lib/python2.7/dist-packages/qlmux/qlmuxd.py", line 124, in main
+                        #        MyServer.select()
+                        #      File "/usr/local/lib/python2.7/dist-packages/qlmux/services.py", line 286, in select
+                        #        sent = w.send(d, socket.MSG_DONTWAIT)
+
                         try:
                                 sent = w.send(d, socket.MSG_DONTWAIT)
                                 #sent = w.send(d)
