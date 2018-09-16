@@ -1,6 +1,6 @@
 #!/usr/bin/python2.7
 
-__version__ = "0.3.1"
+__version__ = "0.3.4"
 
 import select
 import socket
@@ -51,7 +51,10 @@ def main():
 
         for QLMux_Printer in config.QLMux_Printers:
                 print('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
-                Printers[QLMux_Printer.name()] = Printer(QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model());
+                name = QLMux_Printer.name()
+                port = QLMux_Printer.port()
+                model = QLMux_Printer.model()
+                Printers[QLMux_Printer.name()] = Printer(name, port, model);
 
         for QLMux_Pool in config.QLMux_Pools:
 

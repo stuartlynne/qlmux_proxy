@@ -12,6 +12,11 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
+
+# Set encoding default for python 2.7
+#
+# -*- coding: utf-8 -*-
+
 getTimeNow = datetime.datetime.now
 
 
