@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# Set encoding default for python 2.7
 
 import sys
 import itertools
@@ -13,11 +15,31 @@ from threading import Thread as Process
 from time import sleep
 
 
-# Set encoding default for python 2.7
-#
-# -*- coding: utf-8 -*-
 
 getTimeNow = datetime.datetime.now
+
+def xsafe_str(obj):
+        try:
+                s = str(obj)
+
+        except UnicodeEncodeError:
+                print('safe_str: caught:')
+                s = obj.encode('ascii', 'ignore').decode('ascii')
+        return s
+
+def safe_str(s1,msg):
+        s = ''
+        try:
+                s = str(s1)
+                print('safe_str[%s]: OK: "%s"' % (msg, s))
+
+        except UnicodeEncodeError:
+                #s = s1.encode('ascii', 'ignore').decode('ascii')
+                print('safe_str[%s]: CAUGHT: "%s"' % (msg, s))
+
+        return s
+
+
 
 
 from snmp import SNMPStatus
@@ -52,6 +74,7 @@ class Printer( object ):
 		self.model = model
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
+                self.snmpinfo = ''
 		self.snmpmedia = 'UNKNOWN MEDIA'
 		self.snmpmodel = 'UNKNOWN MODEL'
 		self.fd = None
@@ -75,19 +98,25 @@ class Printer( object ):
 		#print('Printer:updatestatus[%s]: %s' % (self.name, self.snmpsession))
 		try:
 			data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
-			self.snmpvalue = data.value
+			s = safe_str(data.value, 'SNMPStatus')
+                        if s is not '':
+                                self.snmpvalue = s
 		except:
 			self.snmpvalue = ''
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
-                        self.snmpmedia = data.value
+                        s = safe_str(data.value, 'SNMPMedia')
+                        if s is not '':
+                                self.snmpmedia = s
 		except:
 			self.snmpmedia = ''
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
-                        self.snmpmodel = data.value
+                        s = safe_str(data.value, 'SNMPModel')
+                        if s is not '':
+                                self.snmpmodel = s
 		except:
 			self.model = ''
 
@@ -174,6 +203,11 @@ class Printer( object ):
                         self.jobsfinished += 1
 
 	def __repr__(self):
+		print( "Printer[%s]" % ( self.name))
+		print( "Printer[%s] snmpmodel: %s" % ( self.name, self.snmpmodel))
+		print( "Printer[%s] snmpstatus: %s" % ( self.name, self.snmpstatus))
+		print( "Printer[%s] snmpmedia: %s" % ( self.name, self.snmpmedia))
+		print( "Printer[%s] len: %d" % ( self.name, len(self.printjobs)))
 		return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
 			self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
 

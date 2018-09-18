@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# Set encoding default for python 2.7
 
 
 import sys
