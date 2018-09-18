@@ -174,8 +174,8 @@ class Server( object):
                 self.printerSendSockets.append(client)
                 self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
                 client.setblocking(0)
-                client.connect_ex(('127.0.0.1', printer.testport))
-                #client.connect_ex((printer.name, 9100))
+                #client.connect_ex(('127.0.0.1', printer.testport))
+                client.connect_ex((printer.name, 9100))
 
 
         def select(self):
