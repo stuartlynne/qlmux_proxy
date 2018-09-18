@@ -56,7 +56,7 @@ class Pool( object ):
         t = None
         for p in printers:
             #print('Pool:process[%s] printer: %s' % (self.name, p))
-            print('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
+            #print('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
 
             # check if media looks correct
             if not re.match(self.media, p.snmpmedia): 
