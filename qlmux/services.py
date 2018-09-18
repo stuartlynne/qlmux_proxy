@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# Set encoding default for python 2.7
 
 import sys
 import itertools
@@ -121,6 +123,7 @@ class Server( object):
                         print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
+                        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         server.bind(('localhost', v.port))
                         server.listen(5)
                         self.poolListenSockets.append(server)
@@ -129,6 +132,7 @@ class Server( object):
                 for p, v in statusPorts.iteritems():
                         print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         server.setblocking(0)
                         server.bind(('localhost', v.port))
                         server.listen(5)
@@ -170,8 +174,8 @@ class Server( object):
                 self.printerSendSockets.append(client)
                 self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
                 client.setblocking(0)
-                #client.connect_ex(('127.0.0.1', printer.testport))
-                client.connect_ex((printer.name, 9100))
+                client.connect_ex(('127.0.0.1', printer.testport))
+                #client.connect_ex((printer.name, 9100))
 
 
         def select(self):
@@ -292,20 +296,32 @@ class Server( object):
                         #        MyServer.select()
                         #      File "/usr/local/lib/python2.7/dist-packages/qlmux/services.py", line 286, in select
                         #        sent = w.send(d, socket.MSG_DONTWAIT)
+                        #       except socket.error as e:
 
                         try:
                                 sent = w.send(d, socket.MSG_DONTWAIT)
                                 #sent = w.send(d)
 
-                        except socket.error as e:
-                                print('%s [%s:%s]: len: %d WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), 
-                                    client.port, client.portname, len(d), e))
+                        except Exception as e:
+                                print('%s [%s:%s]: len: %d WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, len(d), e))
                                 w.close()
-                                self.printerSendSockets.remove(w)
+                                try:
+                                        self.printerSendSockets.remove(w)
+                                except:
+                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                        pass
 
                                 # XXX should this be False to requeue?
-                                client.client.finished(False)
-                                self.socketMap.remove(w)
+                                try:
+                                        client.client.finished(False)
+                                except:
+                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                        pass
+                                try:
+                                        self.socketMap.remove(w)
+                                except:
+                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                        pass
                         continue
 
 
