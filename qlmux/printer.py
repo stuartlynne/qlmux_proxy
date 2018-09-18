@@ -18,26 +18,16 @@ from time import sleep
 
 getTimeNow = datetime.datetime.now
 
-def xsafe_str(obj):
-        try:
-                s = str(obj)
-
-        except UnicodeEncodeError:
-                print('safe_str: caught:')
-                s = obj.encode('ascii', 'ignore').decode('ascii')
-        return s
-
 def safe_str(s1,msg):
         s = ''
         try:
-                s = str(s1)
-                print('safe_str[%s]: OK: "%s"' % (msg, s))
+                return str(s1)
+                #print('safe_str[%s]: OK: "%s"' % (msg, s))
 
         except UnicodeEncodeError:
-                #s = s1.encode('ascii', 'ignore').decode('ascii')
-                print('safe_str[%s]: CAUGHT: "%s"' % (msg, s))
-
-        return s
+                s = s1.encode('ascii', 'ignore').decode('ascii')
+                print('safe_str[%s]: IGNORING: "%s"' % (msg, s))
+        return ''
 
 
 
@@ -118,7 +108,7 @@ class Printer( object ):
                         if s is not '':
                                 self.snmpmodel = s
 		except:
-			self.model = ''
+			self.snmpmodel = ''
 
 		if self.snmpvalue == '':
 			self.snmpstatus = SNMPStatus.NOTAVAILABLE
@@ -203,11 +193,6 @@ class Printer( object ):
                         self.jobsfinished += 1
 
 	def __repr__(self):
-		print( "Printer[%s]" % ( self.name))
-		print( "Printer[%s] snmpmodel: %s" % ( self.name, self.snmpmodel))
-		print( "Printer[%s] snmpstatus: %s" % ( self.name, self.snmpstatus))
-		print( "Printer[%s] snmpmedia: %s" % ( self.name, self.snmpmedia))
-		print( "Printer[%s] len: %d" % ( self.name, len(self.printjobs)))
 		return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
 			self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
 

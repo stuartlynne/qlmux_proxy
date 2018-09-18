@@ -147,19 +147,21 @@ class Server( object):
                 for p, v in self.printers.iteritems():
                         status += '[ %s: %s ]\n' % (p, v.snmpinfo)
 
-                        #if v.model != v.snmpmodel:
-                        #        status += '[ %s: %s ] Wrong Model %s\n' % (p, v.model, v.snmpmodel)
+                        if v.model != v.snmpmodel:
+                                status += '[ %s: %s ] Wrong Model "%s""\n' % (p, v.model, v.snmpmodel)
 
 
                 for p1, v1 in self.poolPorts.iteritems():
-                        print('SNMPStatus[%s] %s' % (p1, v1))
-                        print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
+                        #print('SNMPStatus[%s] %s' % (p1, v1))
+                        #print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
 
                         for v2 in v1.printers:
 
-                                print('SNMPStatus[%s] printer: %s' % (p1, v2))
-                                if not re.match(v1.media, v2.snmpmedia):
-                                        status += '[ %s: %s ] Wrong Media %s\n' % (v2.name, v1.media, v2.snmpmedia)
+                                #print('SNMPStatus[%s] PRINTER: %s' % (p1, v2))
+                                if v2.snmpstatus == SNMPStatus.READY:
+                                        #print('SNMPStatus[%s] media: %s %s' % (v1.mdeia, v2.snmpmedia))
+                                        if not re.match(v1.media, v2.snmpmedia):
+                                                status += '[ %s: %s ] Wrong Media %s\n' % (v2.name, v1.media, v2.snmpmedia)
 
                 return status
 
