@@ -133,6 +133,17 @@ Sample.
         }
 
 
+## /etc/hosts
+The simplest way to configure the QL Label printers is to assign static IP
+addresses via /etc/hosts:
+
+```
+192.168.40.35   ql710w1
+192.168.40.36   ql710w2
+192.168.40.37   ql1060n1
+192.168.40.38   ql710w3
+192.168.40.39   ql1060n2
+```
 
 ## Required packages
 

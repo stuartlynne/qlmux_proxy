@@ -18,7 +18,7 @@ from time import sleep
 
 getTimeNow = datetime.datetime.now
 
-def safe_str(s1,msg):
+def safe_str(p,s1,msg):
         s = ''
         try:
                 return str(s1)
@@ -26,7 +26,7 @@ def safe_str(s1,msg):
 
         except UnicodeEncodeError:
                 s = s1.encode('ascii', 'ignore').decode('ascii')
-                print('safe_str[%s]: IGNORING: "%s"' % (msg, s))
+                print('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
         return ''
 
 
@@ -88,7 +88,7 @@ class Printer( object ):
 		#print('Printer:updatestatus[%s]: %s' % (self.name, self.snmpsession))
 		try:
 			data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
-			s = safe_str(data.value, 'SNMPStatus')
+			s = safe_str(self.name, data.value, 'SNMPStatus')
                         if s is not '':
                                 self.snmpvalue = s
 		except:
@@ -96,7 +96,7 @@ class Printer( object ):
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
-                        s = safe_str(data.value, 'SNMPMedia')
+                        s = safe_str(self.name, data.value, 'SNMPMedia')
                         if s is not '':
                                 self.snmpmedia = s
 		except:
@@ -104,7 +104,7 @@ class Printer( object ):
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
-                        s = safe_str(data.value, 'SNMPModel')
+                        s = safe_str(self.name, data.value, 'SNMPModel')
                         if s is not '':
                                 self.snmpmodel = s
 		except:
