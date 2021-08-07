@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 # Set encoding default for python 2.7
+# vim: syntax=python noexpandtab
 
 
 import sys
 import itertools
-from Queue import Queue, Empty
+#from Queue import Queue, Empty
 from enum import Enum
 #from easysnmp import snmp_get, snmp_set, snmp_walk
 from easysnmp import Session
@@ -20,7 +21,7 @@ class SNMPStatus (Enum):
 	NOTAVAILABLE = 1
 	READY = 2
 	BUSY = 3
-        PRINTING = 4
+	PRINTING = 4
 	COVEROPEN = 5
 	ERROR = 6
 
@@ -42,7 +43,7 @@ class SNMPServer( object ):
 
 		print('SNMPServer:SNMPProcess: printers: %s' % (self.printers))
 		while True:
-			for p,v in self.printers.iteritems():
+			for p,v in self.printers.items():
 				v.updatestatus()
 			sleep(2)
 

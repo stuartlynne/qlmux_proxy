@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 # Set encoding default for python 2.7
+# vim: syntax=python noexpandtab
 
 import sys
 import itertools
 import datetime
-from Queue import Queue, Empty
+#from Queue import Queue, Empty
 from enum import Enum
 #from easysnmp import snmp_get, snmp_set, snmp_walk
 from easysnmp import Session
@@ -14,25 +15,25 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
+from .snmp import SNMPStatus
 
 
 getTimeNow = datetime.datetime.now
 
 def safe_str(p,s1,msg):
-        s = ''
-        try:
-                return str(s1)
-                #print('safe_str[%s]: OK: "%s"' % (msg, s))
+	s = ''
+	try:
+		return str(s1)
+		#print('safe_str[%s]: OK: "%s"' % (msg, s))
 
-        except UnicodeEncodeError:
-                s = s1.encode('ascii', 'ignore').decode('ascii')
-                print('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
-        return ''
-
-
+	except UnicodeEncodeError:
+		s = s1.encode('ascii', 'ignore').decode('ascii')
+		print('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
+	return ''
 
 
-from snmp import SNMPStatus
+
+
 
 class PrinterStatus (Enum):
 	UNKNOWN = 0
@@ -64,7 +65,7 @@ class Printer( object ):
 		self.model = model
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
-                self.snmpinfo = ''
+		self.snmpinfo = ''
 		self.snmpmedia = 'UNKNOWN MEDIA'
 		self.snmpmodel = 'UNKNOWN MODEL'
 		self.fd = None
@@ -80,7 +81,7 @@ class Printer( object ):
 
 
 	# updatestatus
-        # This is called from the SNMP process to update the printer status using SNMP
+	# This is called from the SNMP process to update the printer status using SNMP
 	#
 	def updatestatus(self):
 
@@ -89,53 +90,53 @@ class Printer( object ):
 		try:
 			data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
 			s = safe_str(self.name, data.value, 'SNMPStatus')
-                        if s is not '':
-                                self.snmpvalue = s
+			if s is not '':
+				self.snmpvalue = s
 		except:
 			self.snmpvalue = ''
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
-                        s = safe_str(self.name, data.value, 'SNMPMedia')
-                        if s is not '':
-                                self.snmpmedia = s
+			s = safe_str(self.name, data.value, 'SNMPMedia')
+			if s is not '':
+				self.snmpmedia = s
 		except:
 			self.snmpmedia = ''
 
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
-                        s = safe_str(self.name, data.value, 'SNMPModel')
-                        if s is not '':
-                                self.snmpmodel = s
+			s = safe_str(self.name, data.value, 'SNMPModel')
+			if s is not '':
+				self.snmpmodel = s
 		except:
 			self.snmpmodel = ''
 
 		if self.snmpvalue == '':
 			self.snmpstatus = SNMPStatus.NOTAVAILABLE
-                        self.snmpinfo = 'Not Available, check if powered off or not plugged in'
+			self.snmpinfo = 'Not Available, check if powered off or not plugged in'
 		elif re.match(r'READY', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.READY
-                        self.snmpinfo = 'Ready'
+			self.snmpinfo = 'Ready'
 		elif re.match(r'BUSY', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.BUSY
-                        self.snmpinfo = 'Busy'
+			self.snmpinfo = 'Busy'
 		elif re.match(r'PRINTING', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.PRINTING
-                        self.snmpinfo = 'Printing'
+			self.snmpinfo = 'Printing'
 		elif re.match(r'COVER OPEN', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.COVEROPEN
-                        self.snmpinfo = 'Printer Cover Open, close cover'
+			self.snmpinfo = 'Printer Cover Open, close cover'
 		elif re.match(r'ERROR', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.ERROR
-                        self.snmpinfo = 'Error, jammed, out of labels or wrong labels'
+			self.snmpinfo = 'Error, jammed, out of labels or wrong labels'
 		else:
 			print('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
-                        self.snmpinfo = 'Unknown'
+			self.snmpinfo = 'Unknown'
 
 		if oldstatus != self.snmpstatus:
 			#print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
-                        print('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
+			print('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
 
 	# add a print job to the print jobs queue
 	#
@@ -171,10 +172,10 @@ class Printer( object ):
 	def getJobData(self):
 		return list(self.currentjob.data)
 
-        # finished
-        # Called when the print job has been finished (sent to printer). The flag is set to True for 
-        # success and False for possible failure.
-        #
+	# finished
+	# Called when the print job has been finished (sent to printer). The flag is set to True for 
+	# success and False for possible failure.
+	#
 	def finished(self, flag):
 		self.sending = False
 		#print('Printer:finished: %s' % (self))
@@ -184,13 +185,13 @@ class Printer( object ):
 		pool = job.pool
 		#print('Printer:finished: pool: %s' % (pool))
 
-                # if there was a possible failure to deliver the print job, requeue to send again.
-                #
+		# if there was a possible failure to deliver the print job, requeue to send again.
+		#
 		if not flag:
 			pool.recv(job.data)
-                        self.errors += 1
-                else:
-                        self.jobsfinished += 1
+			self.errors += 1
+		else:
+			self.jobsfinished += 1
 
 	def __repr__(self):
 		return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (

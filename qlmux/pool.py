@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
+# Set encoding default for python 2.7
+# vim: syntax=python noexpandtab
 
 import sys
 import itertools
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from enum import Enum
 #from easysnmp import snmp_get, snmp_set, snmp_walk
 from easysnmp import Session
@@ -11,8 +14,8 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
-from snmp import SNMPStatus
-from printer import PrinterStatus, Printer
+from .snmp import SNMPStatus
+from .printer import PrinterStatus, Printer
 
 import datetime
 getTimeNow = datetime.datetime.now

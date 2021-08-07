@@ -3,7 +3,7 @@
 
 import sys
 import itertools
-from Queue import Queue, Empty
+#from Queue import Queue, Empty
 from enum import Enum
 #from easysnmp import snmp_get, snmp_set, snmp_walk
 from easysnmp import Session
@@ -13,10 +13,10 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
-from snmp import SNMPStatus
-from printer import PrinterStatus, Printer
-from pool import Pool
-from status import StatusPort
+#from snmp import SNMPStatus
+#from printer import PrinterStatus, Printer
+#from pool import Pool
+#from status import StatusPort
 
 import datetime
 getTimeNow = datetime.datetime.now
@@ -94,7 +94,7 @@ class SocketMap( object ):
 
         def __repr__(self):
                 res = ''
-                for p,v in self.sockets.iteritems(): res += str(v)
+                for p,v in self.sockets.items(): res += str(v)
                 return res
                 #return "\nSockets: %s\n" % (self.sockets)
 
@@ -119,7 +119,7 @@ class Server( object):
 
                 self.socketMap = SocketMap()
 
-                for p, v in pools.iteritems():
+                for p, v in pools.items():
                         print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
@@ -129,7 +129,7 @@ class Server( object):
                         self.poolListenSockets.append(server)
                         self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
 
-                for p, v in statusPorts.iteritems():
+                for p, v in statusPorts.items():
                         print('Server:__init__: listen on %s' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -144,14 +144,14 @@ class Server( object):
 
         def SNMPStatus(self):
                 status = ''
-                for p, v in self.printers.iteritems():
+                for p, v in self.printers.items():
                         status += '[ %s: %s ]\n' % (p, v.snmpinfo)
 
                         if v.model != v.snmpmodel:
                                 status += '[ %s: %s ] Wrong Model "%s""\n' % (p, v.model, v.snmpmodel)
 
 
-                for p1, v1 in self.poolPorts.iteritems():
+                for p1, v1 in self.poolPorts.items():
                         #print('SNMPStatus[%s] %s' % (p1, v1))
                         #print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
 

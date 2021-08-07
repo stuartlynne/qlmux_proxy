@@ -1,11 +1,14 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+# Set encoding default for python 2.7
+# vim: syntax=python noexpandtab
 
 __version__ = "0.3.4"
 
 import select
 import socket
 import sys
-import Queue
+#import Queue
 import datetime
 import jsoncfg
 import json
@@ -115,7 +118,7 @@ def main():
                 #if firsttime or (getTimeNow() - lasttime).total_seconds() > 2:
                 #	print('\nMain: updating status ....')
                 #	firsttime = False
-                #	for p,v in Printers.iteritems():
+                #	for p,v in Printers.items():
                 #		v.updatestatus()
                 #	lasttime = getTimeNow()
 
@@ -124,15 +127,15 @@ def main():
                 MyServer.select()
 
                 #print('\nMain: Processing Received ....')
-                for p, v in Pools.iteritems():
+                for p, v in Pools.items():
                         v.forward()
 
                 #print('\nMain: Forwarding Queued ....')
-                for p, v in Printers.iteritems():
+                for p, v in Printers.items():
                         if v.checkforjobs():
                                 MyServer.startSendJob(v)
                 
-                #for p, v in StatusPorts.iteritems():
+                #for p, v in StatusPorts.items():
                 #	if v.checkforjobs():
                 #		Server.startsend(v)
                 
