@@ -90,7 +90,7 @@ class Printer( object ):
 		try:
 			data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
 			s = safe_str(self.name, data.value, 'SNMPStatus')
-			if s is not '':
+			if s != '':
 				self.snmpvalue = s
 		except:
 			self.snmpvalue = ''
@@ -98,7 +98,7 @@ class Printer( object ):
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
 			s = safe_str(self.name, data.value, 'SNMPMedia')
-			if s is not '':
+			if s != '':
 				self.snmpmedia = s
 		except:
 			self.snmpmedia = ''
@@ -106,7 +106,7 @@ class Printer( object ):
 		try:
 			data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
 			s = safe_str(self.name, data.value, 'SNMPModel')
-			if s is not '':
+			if s != '':
 				self.snmpmodel = s
 		except:
 			self.snmpmodel = ''
