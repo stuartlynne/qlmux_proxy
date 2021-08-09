@@ -35,8 +35,8 @@ def main():
                 try:
                         config = jsoncfg.load_config(c)
                         break
-                except:
-                        print('QLMuxd: error cannot open %s' % c)
+                except Exception as e:
+                        print('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
                         continue
 
         if config is None:
@@ -47,8 +47,9 @@ def main():
         Pools = dict()
         StatusPorts = dict()
 
+        #print('config: %s' % config)
         ports = config.QLMux_Ports()
-        print('Config: Ports: %s' % (ports))
+        #print('Config: Ports: %s' % (ports))
         for v in ports:
                 print('Config: Port: %s' % (v))
 
