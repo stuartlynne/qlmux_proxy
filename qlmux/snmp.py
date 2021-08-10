@@ -28,7 +28,7 @@ class SNMPStatus (Enum):
 
 #
 # SNMPServer
-# This is started as a separated thread, it will poll the printers with snmp every
+# This is started as a separate thread, it will poll the printers with snmp every
 # two seconds to get the current status.
 #
 class SNMPServer( object ):
