@@ -62,8 +62,16 @@ class Pool( object ):
             #print('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
 
             # check if media looks correct
-            if not re.match(self.media, p.snmpmedia): 
+            matched = False
+            for m in self.media:
+                if not re.match(self.media, p.snmpmedia):
+                    continue
+                else:
+                    matched = True
+
+            if matched is False:
                 continue
+
             # check if model is correct
             #if p.snmpmodel != p.model: 
             #    continue
