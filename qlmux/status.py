@@ -50,7 +50,7 @@ class StatusPort( object ):
 		del sel.statusRequests[clientfd]
 
 	def getsenddata(self):
-		return list(self.currentjob.data)
+		return list(self.currentjob.data).encode("utf-8")
 
 
 	def getsentdata(self, client):
