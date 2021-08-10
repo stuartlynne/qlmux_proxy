@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Set encoding default for python 2.7
-# vim: syntax=python noexpandtab
+# vim: syntax=python expandtab
 
 __version__ = "0.3.4"
 
@@ -66,7 +66,10 @@ def main():
 
                 primaries = QLMux_Pool.primaries()
                 backups = QLMux_Pool.backups()
-                print('Config: Pool: name: %s port: %s primaries: %s backups: %s' % (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups))
+                media = QLMux_Pool.media()
+
+                print('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
+                        (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups, media))
 
                 Pools[QLMux_Pool.name()] = Pool(
                         QLMux_Pool.name(),
@@ -125,7 +128,8 @@ def main():
 
 
                 #print('\nMain: Listening ....')
-                MyServer.select()
+                if not MyServer.select():
+                        break
 
                 #print('\nMain: Processing Received ....')
                 for p, v in Pools.items():
@@ -135,11 +139,11 @@ def main():
                 for p, v in Printers.items():
                         if v.checkforjobs():
                                 MyServer.startSendJob(v)
-                
+
                 #for p, v in StatusPorts.items():
                 #	if v.checkforjobs():
                 #		Server.startsend(v)
-                
+
 
 
 #Pools = {
