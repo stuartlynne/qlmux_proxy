@@ -66,7 +66,7 @@ class Printer( object ):
 		self.snmpstatus = SNMPStatus.UNKNOWN
 		self.snmpvalue = ''
 		self.snmpinfo = ''
-		self.snmpmedia = 'UNKNOWN MEDIA'
+		self.snmpmedia = 'NO LABELS'
 		self.snmpmodel = 'UNKNOWN MODEL'
 		self.fd = None
 		self.pool = None
@@ -113,7 +113,7 @@ class Printer( object ):
 
 		if self.snmpvalue == '':
 			self.snmpstatus = SNMPStatus.NOTAVAILABLE
-			self.snmpinfo = 'Not Available, check if powered off or not plugged in'
+			self.snmpinfo = 'Not Available'
 		elif re.match(r'READY', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.READY
 			self.snmpinfo = 'Ready'
@@ -125,10 +125,10 @@ class Printer( object ):
 			self.snmpinfo = 'Printing'
 		elif re.match(r'COVER OPEN', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.COVEROPEN
-			self.snmpinfo = 'Printer Cover Open, close cover'
+			self.snmpinfo = 'Printer Cover Open'
 		elif re.match(r'ERROR', self.snmpvalue):
 			self.snmpstatus = SNMPStatus.ERROR
-			self.snmpinfo = 'Error, jammed, out of labels or wrong labels'
+			self.snmpinfo = 'Error '
 		else:
 			print('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
