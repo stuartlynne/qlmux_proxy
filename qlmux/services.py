@@ -13,7 +13,7 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
-#from snmp import SNMPStatus
+from .snmp import SNMPStatus
 #from printer import PrinterStatus, Printer
 #from pool import Pool
 #from status import StatusPort
@@ -119,8 +119,9 @@ class Server( object):
 
                 self.socketMap = SocketMap()
 
+                print('*********************************************')
                 for p, v in pools.items():
-                        print('Server:__init__: listen on %s' % v.port)
+                        print('Server:__init__: listen on %s pool Port' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
                         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -129,8 +130,9 @@ class Server( object):
                         self.poolListenSockets.append(server)
                         self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
 
+                print('*********************************************')
                 for p, v in statusPorts.items():
-                        print('Server:__init__: listen on %s' % v.port)
+                        print('Server:__init__: listen on %s status Port' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         server.setblocking(0)
@@ -145,24 +147,78 @@ class Server( object):
         def SNMPStatus(self):
                 status = ''
                 for p, v in self.printers.items():
-                        status += '[ %s: %s ]\n' % (p, v.snmpinfo)
+
+                        print('################################################')
+                        print('SNMPStatus[%s]' % (p))
+
+                        print('-----------------------')
+                        if v.snmpstatus == SNMPStatus.NOTAVAILABLE:
+                                status += '\n'
+                                status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
+                                status += '[%8s: Check if powered off or not plugged in ]\n\n' % (p)
+                                continue
+
+                        if v.snmpstatus == SNMPStatus.COVEROPEN:
+                                status += '\n'
+                                status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
+                                status += '[%8s: Check printer cover is closed ]\n\n' % (p)
+                                continue
+
+                        if v.snmpstatus == SNMPStatus.ERROR:
+                                status += '\n'
+                                status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
+                                status += '[%8s: Jammed, out of labels or wrong labels ]\n\n' % (p)
+                                continue
 
                         if v.model != v.snmpmodel:
-                                status += '[ %s: %s ] Wrong Model "%s""\n' % (p, v.model, v.snmpmodel)
+                                status += '\n'
+                                status += '[%8s: Wrong Model, have %s, need %s ]\n\n' % (p, v.snmpmodel, v.model)
+                                continue
+
+                        match = False
+                        poolmedia = None
+                        for p1, v1 in self.poolPorts.items():
+                                printers = v1.printers + v1.backups
+                                media = v1.media
+                                #print('[%s] printers: %s' % (p1, printers))
+                                #print('[%s] media: %s' % (p1, media))
+
+                                #continue
+
+                                #print('SNMPStatus[%s] %s' % (p1, v1))
+                                #print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
+
+                                for v2 in v1.printers:
+                                        if v2.name != p:
+                                                continue
+                                        poolmedia = v1.media
+                                        for m in v1.media:
+                                                print('[%s] media: "%s" == "%s"' % (p1, m, v.snmpmedia))
+                                                #if m == v.snmpmedia:
+                                                if re.match(m, v.snmpmedia):
+                                                        match = True
+                                        print('[%s] name: %s snmpmedia: %s match: %s' % (p, v2.name, v.snmpmedia, match))
+                                        break
+
+                        if not match:
+                                status += '\n'
+                                status += '[%8s: Wrong Media ]\n' % (p)
+                                status += '[%8s: Have %s Need %s ]\n\n' % (p, v.snmpmedia, poolmedia)
+                                continue
+
+                        status += '[%8s: %-26s %-40s ]\n' % (p, v.snmpmedia, v.snmpinfo)
+                        #continue
 
 
-                for p1, v1 in self.poolPorts.items():
-                        #print('SNMPStatus[%s] %s' % (p1, v1))
-                        #print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
 
-                        for v2 in v1.printers:
-
-                                #print('SNMPStatus[%s] PRINTER: %s' % (p1, v2))
-                                if v2.snmpstatus == SNMPStatus.READY:
-                                        #print('SNMPStatus[%s] media: %s %s' % (v1.mdeia, v2.snmpmedia))
-                                        if not re.match(v1.media, v2.snmpmedia):
-                                                status += '[ %s: %s ] Wrong Media %s\n' % (v2.name, v1.media, v2.snmpmedia)
-
+                                        #try:
+                                        #        print('SNMPStatus[%s] PRINTER: %s' % (p1, v2))
+                                        #        if v2.snmpstatus == SNMPStatus.READY:
+                                        #                print('SNMPStatus[%s] media: %s %s' % (v1.mdeia, v2.snmpmedia))
+                                        #                if not re.match(v1.media, v2.snmpmedia):
+                                        #                        status += '[ %s: %s ] Wrong Media %s\n' % (v2.name, v1.media, v2.snmpmedia)
+                                        #except:
+                                        #        print('SNMPStatus[%s] PRINTER NOT FOUND: %s' % (p1, v2))
                 return status
 
 
@@ -187,144 +243,171 @@ class Server( object):
                 input_fds = self.poolListenSockets + self.statusListenSockets + self.poolRecvSockets
                 output_fds = self.printerSendSockets + self.statusSendSockets
 
-                readable, writeable, exceptional = select.select(input_fds, output_fds, input_fds, timeout)
+                exceptional = None
+                readable = None
+                writeable = None
+                returncode = True
 
-                for e in exceptional:
-                        print("******************************************\n\n")
-                        print("******************************************\n\n")
-                        client = self.socketMap.get(e)
-                        print('Server:select:client:exceptional[%s:%s]:' % (clean.port, client.portname))
-
-                        if e in self.poolRecvSockets:
-                                print('Server:select:exceptional:data[%s:%s}: input exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
-                                self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(e))
-                                self.poolRecvSockets.remove(e)
-
-                        if e in output_fds:
-                                print('Server:select:exceptional:data[%s:%s}: output exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
-                                if e in self.statusSendSockets:
-                                        self.statusSendSockets.remove(e)
-                                elif e in self.printerSendSockets:
-                                        self.printerSendSockets.remove(e)
-                                        client.client.finished(True)
-
-                        e.close()
-                        self.socketMap.remove(e)
-
-                        continue
+                try:
+                        readable, writeable, exceptional = select.select(input_fds, output_fds, input_fds, timeout)
+                except:
+                        returncode = False
+                        pass
 
 
-                for r in readable:
+                if exceptional is not None:
+                        for e in exceptional:
+                                print("******************************************")
+                                print("******************************************")
+                                client = self.socketMap.get(e)
+                                print('Server:select:client:exceptional[%s:%s]:' % (clean.port, client.portname))
 
-                        # receive data coming into pool receive socket
-                        if r in self.poolRecvSockets:
-                                connection = self.socketMap.get(r)
+                                if e in self.poolRecvSockets:
+                                        print('Server:select:exceptional:data[%s:%s}: input exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
+                                        self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(e))
+                                        self.poolRecvSockets.remove(e)
 
-                                # no data or exception indicates other end has closed
-                                # the connection
-                                #
-                                try:
-                                        data = r.recv(1024)
-                                        if data:
-                                                self.socketMap.appendrecvdata(r, data)
-                                                #print('Server:select:readable:data[%s}: len: %s' % (connection, len(data)))
-                                                continue
-                                        else:
+                                if e in output_fds:
+                                        print('Server:select:exceptional:data[%s:%s}: output exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
+                                        if e in self.statusSendSockets:
+                                                self.statusSendSockets.remove(e)
+                                        elif e in self.printerSendSockets:
+                                                self.printerSendSockets.remove(e)
+                                                client.client.finished(True)
+
+                                e.close()
+                                self.socketMap.remove(e)
+
+                                continue
+                else:
+                        print("******************************************")
+                        print("******************************************")
+                        print("exceptional is None **********************")
+                        print("******************************************")
+                        print("******************************************")
+
+
+                if readable is not None:
+                        for r in readable:
+
+                                # receive data coming into pool receive socket
+                                if r in self.poolRecvSockets:
+                                        connection = self.socketMap.get(r)
+
+                                        # no data or exception indicates other end has closed
+                                        # the connection
+                                        #
+                                        try:
+                                                data = r.recv(1024)
+                                                if data:
+                                                        self.socketMap.appendrecvdata(r, data)
+                                                        #print('Server:select:readable:data[%s}: len: %s' % (connection, len(data)))
+                                                        continue
+                                                else:
+                                                        pass
+                                        except:
                                                 pass
-                                except:
-                                        pass
 
-                                #print('Server:select:readable:data[%s:%s}: no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
-                                self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(r))
-                                self.poolRecvSockets.remove(r)
-                                self.socketMap.remove(r)
-                                r.close()
+                                        #print('Server:select:readable:data[%s:%s}: no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
+                                        self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(r))
+                                        self.poolRecvSockets.remove(r)
+                                        self.socketMap.remove(r)
+                                        r.close()
+                                        continue
+
+                                # handle an incoming connection on a pool listen port
+                                if r in self.poolListenSockets:
+                                        client = self.socketMap.get(r)
+                                        fd, client_address = r.accept()
+                                        self.poolRecvSockets.append(fd)
+                                        self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
+                                        #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                        print('%s [%s:%s]: %s PRINT'  % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, client_address))
+                                        continue
+
+                                # handle an incoming connection on a status listen port
+                                if r in self.statusListenSockets:
+
+                                        client = self.socketMap.get(r)
+                                        fd, client_address = r.accept()
+
+                                        self.statusSendSockets.append(fd)
+                                        d = [self.SNMPStatus(),]
+                                        self.socketMap.add(fd, 0, SocketType.SEND, client.portname, (d), None)
+                                        #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                                        #print('[%s:%s]: %s STATUS'  % (client.port, client.portname, client_address))
+                                        continue
+
                                 continue
 
-                        # handle an incoming connection on a pool listen port
-                        if r in self.poolListenSockets:
-                                client = self.socketMap.get(r)
-                                fd, client_address = r.accept()
-                                self.poolRecvSockets.append(fd)
-                                self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
-                                #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
-                                print('%s [%s:%s]: %s PRINT'  % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, client_address))
-                                continue
-
-                        # handle an incoming connection on a status listen port
-                        if r in self.statusListenSockets:
-
-                                client = self.socketMap.get(r)
-                                fd, client_address = r.accept()
-
-                                self.statusSendSockets.append(fd)
-                                d = [self.SNMPStatus(),]
-                                self.socketMap.add(fd, 0, SocketType.SEND, client.portname, (d), None)
-                                #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
-                                #print('[%s:%s]: %s STATUS'  % (client.port, client.portname, client_address))
-                                continue
-
-                        continue
-
-                for w in writeable:
-                        client = self.socketMap.get(w)
-
-                        d = client.getsenddata()
-
-                        # no data to send to this socket, close the connection
-                        if d is None:
-                                #print('Server:select:writable[%s:%s]: NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
+                if writeable is not None:
+                        for w in writeable:
+                                client = self.socketMap.get(w)
 
                                 if w in self.statusSendSockets:
-                                        self.statusSendSockets.remove(w)
+                                        s = client.getsenddata()
+                                        if s is not None:
+                                                d = s.encode("utf-8")
+                                        else:
+                                                d = None
                                 elif w in self.printerSendSockets:
-                                        self.printerSendSockets.remove(w)
-                                        client.client.finished(True)
-                                else:
-                                        pass
+                                        d = client.getsenddata()
 
-                                w.close()
-                                self.socketMap.remove(w)
-                                continue
+                                # no data to send to this socket, close the connection
+                                if d is None:
+                                        #print('Server:select:writable[%s:%s]: NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
+                                        if w in self.statusSendSockets:
+                                                self.statusSendSockets.remove(w)
+                                        elif w in self.printerSendSockets:
+                                                self.printerSendSockets.remove(w)
+                                                client.client.finished(True)
+                                        else:
+                                                pass
 
-                        # have data, send it, 
-
-                        # XXX we are seeing problems here
-                        #Traceback (most recent call last):
-                        #    Traceback (most recent call last):
-                        #      File "/usr/local/bin/qlmuxd", line 11, in <module>
-                        #        load_entry_point('qlmux==0.3.4', 'console_scripts', 'qlmuxd')()
-                        #      File "/usr/local/lib/python2.7/dist-packages/qlmux/qlmuxd.py", line 124, in main
-                        #        MyServer.select()
-                        #      File "/usr/local/lib/python2.7/dist-packages/qlmux/services.py", line 286, in select
-                        #        sent = w.send(d, socket.MSG_DONTWAIT)
-                        #       except socket.error as e:
-
-                        try:
-                                sent = w.send(d, socket.MSG_DONTWAIT)
-                                #sent = w.send(d)
-
-                        except Exception as e:
-                                print('%s [%s:%s]: len: %d WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, len(d), e))
-                                w.close()
-                                try:
-                                        self.printerSendSockets.remove(w)
-                                except:
-                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
-                                        pass
-
-                                # XXX should this be False to requeue?
-                                try:
-                                        client.client.finished(False)
-                                except:
-                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
-                                        pass
-                                try:
+                                        w.close()
                                         self.socketMap.remove(w)
-                                except:
-                                        print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
-                                        pass
-                        continue
+                                        continue
+
+                                # have data, send it, 
+
+                                # XXX we are seeing problems here
+                                #Traceback (most recent call last):
+                                #    Traceback (most recent call last):
+                                #      File "/usr/local/bin/qlmuxd", line 11, in <module>
+                                #        load_entry_point('qlmux==0.3.4', 'console_scripts', 'qlmuxd')()
+                                #      File "/usr/local/lib/python2.7/dist-packages/qlmux/qlmuxd.py", line 124, in main
+                                #        MyServer.select()
+                                #      File "/usr/local/lib/python2.7/dist-packages/qlmux/services.py", line 286, in select
+                                #        sent = w.send(d, socket.MSG_DONTWAIT)
+                                #       except socket.error as e:
+
+                                try:
+                                        sent = w.send(d, socket.MSG_DONTWAIT)
+                                        #sent = w.send(d)
+
+                                except Exception as e:
+                                        print('%s [%s:%s]: len: %d WRITABLE ERROR %s' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname, len(d), e))
+                                        w.close()
+                                        try:
+                                                self.printerSendSockets.remove(w)
+                                        except:
+                                                print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                                pass
+
+                                        # XXX should this be False to requeue?
+                                        try:
+                                                client.client.finished(False)
+                                        except:
+                                                print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                                pass
+                                        try:
+                                                self.socketMap.remove(w)
+                                        except:
+                                                print('%s [%s:%s]: CAUGHT exception' % (getTimeNow().strftime('%H:%M:%S'), client.port, client.portname))
+                                                pass
+                                continue
+                
+                return returncode
 
 
 
