@@ -122,7 +122,7 @@ class Server( object):
 
                 #print('*********************************************')
                 for p, v in pools.items():
-                        log('Server:__init__: listen on %s pool Port' % v.port)
+                        log('Server: listen on %s pool Port' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setblocking(0)
                         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -133,7 +133,7 @@ class Server( object):
 
                 #print('*********************************************')
                 for p, v in statusPorts.items():
-                        log('Server:__init__: listen on %s status Port' % v.port)
+                        log('Server: listen on %s status Port' % v.port)
                         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         server.setblocking(0)
