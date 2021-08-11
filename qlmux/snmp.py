@@ -14,6 +14,7 @@ import select
 import socket
 from threading import Thread as Process
 from time import sleep
+from .utils import *
 
 
 class SNMPStatus (Enum):
@@ -41,7 +42,7 @@ class SNMPServer( object ):
 
 	def SNMPProcess(self):
 
-		print('SNMPServer:SNMPProcess: printers: %s' % (self.printers))
+		log('SNMPServer:SNMPProcess started')
 		while True:
 			for p,v in self.printers.items():
 				v.updatestatus()

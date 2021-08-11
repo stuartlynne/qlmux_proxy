@@ -16,6 +16,7 @@ import json
 
 from time import sleep
 
+from .utils import log
 
 from .services import Server
 from .printer import PrinterStatus, Printer
@@ -24,6 +25,9 @@ from .status import StatusPort
 from .snmp import SNMPStatus, SNMPServer
 
 getTimeNow = datetime.datetime.now
+
+#def log(s):
+#        print('%s %s' % (getTimeNow().strftime('%H:%M:%S'), s))
 
 
 def main():
@@ -40,7 +44,7 @@ def main():
                         continue
 
         if config is None:
-                print('QLMuxd: error cannot open either: %s' % cfgs)
+                log('QLMuxd: error cannot open either: %s' % cfgs)
                 exit(1)
 
         Printers = dict()
@@ -51,24 +55,25 @@ def main():
         ports = config.QLMux_Ports()
         #print('Config: Ports: %s' % (ports))
         for v in ports:
-                print('Config: Port: %s' % (v))
+                log('Config: Port: %s' % (v))
 
         for QLMux_Printer in config.QLMux_Printers:
-                print('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
+                log('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
                 name = QLMux_Printer.name()
+                hostname = QLMux_Printer.hostname()
                 port = QLMux_Printer.port()
                 model = QLMux_Printer.model()
-                Printers[QLMux_Printer.name()] = Printer(name, port, model);
+                Printers[QLMux_Printer.name()] = Printer(name, hostname, port, model);
 
         for QLMux_Pool in config.QLMux_Pools:
 
-                print('Config: Pool: name: %s' % (QLMux_Pool))
+                log('Config: Pool: name: %s' % (QLMux_Pool))
 
                 primaries = QLMux_Pool.primaries()
                 backups = QLMux_Pool.backups()
                 media = QLMux_Pool.media()
 
-                print('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
+                log('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
                         (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups, media))
 
                 Pools[QLMux_Pool.name()] = Pool(
@@ -129,6 +134,7 @@ def main():
 
                 #print('\nMain: Listening ....')
                 if not MyServer.select():
+                        log("exiting")
                         break
 
                 #print('\nMain: Processing Received ....')

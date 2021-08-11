@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Set encoding default for python 2.7
-# vim: syntax=python noexpandtab
+# vim: syntax=python expandtab
 
 import sys
 import itertools
@@ -14,6 +14,7 @@ import socket
 from threading import Thread as Process
 from time import sleep
 
+from .utils import *
 from .snmp import SNMPStatus
 from .printer import PrinterStatus, Printer
 
@@ -40,9 +41,11 @@ class Pool( object ):
         self.listenfd = None
         self.datafds = []
         self.lastprinter = None
-        print('Pool:__init__[%s] queue: %s' % (self.name, self.queue.qsize()))
-        print('Pool:__init__[%s] printers: %s' % (self.name, self.printers))
-        print('Pool:__init__[%s] backups: %s' % (self.name, self.backups))
+        log('Pool:[%s] queue: %s' % (self.name, self.queue.qsize()))
+        for p in self.printers:
+                log('Pool:[%s] primary: %s' % (self.name, p))
+        for p in self.backups:
+                log('Pool:[%s] backups: %s' % (self.name, p))
         #self.setlistenfd(None)
 
 
@@ -103,16 +106,16 @@ class Pool( object ):
         if printer is None:
             printer = self.bestprinter(self.backups)
             if printer is not None:
-                print('%s [%s] %s FORWARD BACKUP' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
+                log('%s [%s] %s FORWARD BACKUP' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
         else:
-            print('%s [%s] %s FORWARD' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
+            log('%s [%s] %s FORWARD' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
 
         if printer is None:
-            print('%s [%s] CANNOT FIND PRINTER' % (getTimeNow().strftime('%H:%M:%S'), self.name))
+            log('%s [%s] CANNOT FIND PRINTER' % (getTimeNow().strftime('%H:%M:%S'), self.name))
             return
 
         if printer.snmpstatus != SNMPStatus.READY:
-            print('%s [%s] PRINTER Busy' % (getTimeNow().strftime('%H:%M:%S'), self.name))
+            log('%s [%s] PRINTER Busy' % (getTimeNow().strftime('%H:%M:%S'), self.name))
             return
         self.lastprinter = printer
         printer.add(self, self.queue.get())

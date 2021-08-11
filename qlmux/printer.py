@@ -14,6 +14,7 @@ import select
 import socket
 from threading import Thread as Process
 from time import sleep
+from .utils import *
 
 from .snmp import SNMPStatus
 
@@ -28,7 +29,7 @@ def safe_str(p,s1,msg):
 
 	except UnicodeEncodeError:
 		s = s1.encode('ascii', 'ignore').decode('ascii')
-		print('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
+		log('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
 	return ''
 
 
@@ -59,8 +60,9 @@ class Job( object ):
 #
 class Printer( object ):
 
-	def __init__(self, name, testport, model):
+	def __init__(self, name, hostname, testport, model):
 		self.name = name
+		self.hostname = hostname
 		self.testport = testport
 		self.model = model
 		self.snmpstatus = SNMPStatus.UNKNOWN
@@ -77,7 +79,7 @@ class Printer( object ):
 		self.jobsfinished = 0
 		self.errors = 0
 
-		self.snmpsession = Session(hostname=name, community='public', version=1, timeout=.2, retries=0)
+		self.snmpsession = Session(hostname=hostname, community='public', version=1, timeout=.2, retries=0)
 
 
 	# updatestatus
@@ -130,13 +132,13 @@ class Printer( object ):
 			self.snmpstatus = SNMPStatus.ERROR
 			self.snmpinfo = 'Error '
 		else:
-			print('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
+			log('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
 			self.snmpinfo = 'Unknown'
 
 		if oldstatus != self.snmpstatus:
 			#print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
-			print('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
+			log('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
 
 	# add a print job to the print jobs queue
 	#
