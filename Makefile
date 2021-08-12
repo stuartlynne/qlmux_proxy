@@ -1,4 +1,5 @@
 
+# vim: noexpandtab tabstop=8 shiftwidth=8
 
 
 
@@ -18,3 +19,6 @@ sdist:
 	python setup.py $@
 install:
 	python setup.py $@
+install-support:
+	cp -vr bin/* /usr/local/bin
+
