@@ -1,0 +1,15 @@
+Mon Aug  9 23:36:06 PDT 2021
+/home/racedb/bin/LABELS: /lvm1/home/racedb/RaceDB-03000030/pdfs/bib-733_port-8000_antenna-0_type-Body_686bbb13344a437292f0ca4b24ae1962.pdf
+DIR: /home/racedb/bin
+ARG0: LABELS
+ARG1: bib-733_port-8000_antenna-0_type-Body_686bbb13344a437292f0ca4b24ae1962.pdf
+BIB: bib-733
+PORT: port-8000
+ANTENNA: antenna-0
+TYPE: type-Body
+FILE: 686bbb13344a437292f0ca4b24ae1962.pdf
+SMALL: 9101
+LARGE: 9103
+
+QLPS2RASTER: /home/racedb/bin/qlps2raster_102x152
+POOL: 9103
