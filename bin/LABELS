@@ -88,7 +88,6 @@ onerror() {
         exit 1
 }
 killme() {
-        figlet -f banner ERROR 1>&2
         /bin/echo -en "\n\n$*\n\n" 1>&2
         kill -1 $$ 2>&1 > /dev/null
 }
@@ -196,7 +195,6 @@ if [ "$RC" -ne 0 ] ; then
 fi
 
 if [ -n "${STATUS}" ] ; then
-    #figlet -f banner Check Printers
     echo Check Printers!
     echo "${STATUS}"
 
