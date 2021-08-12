@@ -121,18 +121,18 @@ done
 #
 case ${ANTENNA} in
 
-antenna-0 | antenna-1 | antenna-2)
-    SMALL=9001
-    LARGE=9003
-    ;;
-antenna-3 | antenna-4 | *)
+antenna-3 | antenna-4 )
     SMALL=9002
     LARGE=9004
+    ;;
+
+antenna-0 | antenna-1 | antenna-2 | *)
+    SMALL=9001
+    LARGE=9003
     ;;
 esac
 
 
-DIR=$(dirname $0)
 ARG0=$(basename $0)
 
 
@@ -141,19 +141,19 @@ ARG0=$(basename $0)
 case ${TYPE} in
 type-Tag | type-Frame | type-Shoulder | type-Emergency )
     PRINTERCLASS=QL710W
-    QLPS2RASTER=${DIR}/qlps2raster_62x100
+    QLPS2RASTER=/usr/local/bin/qlps2raster_62x100
     POOL=$SMALL
     PAGES=""
     ;;
 type-Body)
     PRINTERCLASS=QL1060N
-    QLPS2RASTER=${DIR}/qlps2raster_102x152
+    QLPS2RASTER=/usr/local/bin/qlps2raster_102x152
     POOL=$LARGE
     PAGES=""
     ;;
 *)
     PRINTERCLASS=QL1060N
-    QLPS2RASTER=${DIR}/qlps2raster_102x152
+    QLPS2RASTER=/usr/local/bin/qlps2raster_102x152
     POOL=$LARGE
     PAGES=""
     ;;
@@ -161,7 +161,6 @@ esac
 
 (date; 
 /bin/echo $0: $*
-/bin/echo "DIR: $DIR"
 /bin/echo "ARG0: $ARG0"
 /bin/echo "BIB: $BIB"
 /bin/echo "PORT: $PORT"
