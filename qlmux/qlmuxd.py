@@ -32,7 +32,7 @@ getTimeNow = datetime.datetime.now
 
 def main():
 
-        cfgs = ['qlmuxd.cfg', '/usr/local/etc/qlmuxd.cfg']
+        cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
 
         config = None
         for c in cfgs:
@@ -40,7 +40,7 @@ def main():
                         config = jsoncfg.load_config(c)
                         break
                 except Exception as e:
-                        print('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
+                        log('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
                         continue
 
         if config is None:
@@ -53,10 +53,14 @@ def main():
 
         #print('config: %s' % config)
         ports = config.QLMux_Ports()
-        #print('Config: Ports: %s' % (ports))
+        log('Config: Ports: %s' % (ports))
         for v in ports:
-                log('Config: Port: %s' % (v))
+                log('Config: Pool Port: %s' % (v))
+        ports = config.QLMux_StatusPorts()
+        for v in ports:
+                log('Config: Status Port: %s' % (v))
 
+        log('Config: Printers')
         for QLMux_Printer in config.QLMux_Printers:
                 log('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
                 name = QLMux_Printer.name()
@@ -65,6 +69,10 @@ def main():
                 model = QLMux_Printer.model()
                 Printers[QLMux_Printer.name()] = Printer(name, hostname, port, model);
 
+        SNMP = SNMPServer(Printers)
+        sleep(2)
+
+        log('Config: Pools')
         for QLMux_Pool in config.QLMux_Pools:
 
                 log('Config: Pool: name: %s' % (QLMux_Pool))
@@ -110,7 +118,7 @@ def main():
 
 
 
-        SNMP = SNMPServer(Printers)
+        #SNMP = SNMPServer(Printers)
         sleep(2)
         MyServer = Server(Pools, StatusPorts, Printers)
 

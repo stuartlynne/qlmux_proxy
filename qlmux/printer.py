@@ -138,7 +138,7 @@ class Printer( object ):
 
 		if oldstatus != self.snmpstatus:
 			#print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
-			log('%s [%s] %s -> %s' % (getTimeNow().strftime('%H:%M:%S'), self.name, oldstatus, self.snmpstatus.name))
+			log('[%s] %s -> %s' % (self.name, oldstatus, self.snmpstatus.name))
 
 	# add a print job to the print jobs queue
 	#
