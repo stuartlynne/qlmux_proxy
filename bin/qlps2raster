@@ -115,10 +115,14 @@ qlps2raster_62x100)
 esac
 if [ $# -eq 2 ] ; then
         NETCAT=netcat
+        NETCATARGS="-q0"
         HOST=$1
         PORT=$2
 else
         NETCAT=cat
+        NETCATARGS=""
+        HOST=""
+        PORT=""
 fi
 
 # create a customized RC file that can be used by rastertobrpt1
@@ -151,6 +155,7 @@ STDERR PSCONV_OP= $PSCONF_OP
 STDERR BRCONV_OP: $BRCONV_OP
 STDERR BRCONV: $BRCONV 
 STDERR NETCAT: $NETCAT
+STDERR NETCATARGS: $NETCATARGS
 STDERR HOST: $HOST
 STDERR PORT: $PORT
 
@@ -211,8 +216,8 @@ function BROTHERQLPRINT {
     #rm $1.rast
 }
 
-#QLPRINT $PNG-* | tee ${RAST} | ${NETCAT} ${HOST} ${PORT}
-BROTHERQLPRINT $PNG-* | tee ${RAST} | ${NETCAT} ${HOST} ${PORT}
+#QLPRINT $PNG-* | tee ${RAST} | ${NETCAT} ${NETCATARGS} ${HOST} ${PORT}
+BROTHERQLPRINT $PNG-* | tee ${RAST} | ${NETCAT} ${NETCATARGS} ${HOST} ${PORT}
 
 
 
