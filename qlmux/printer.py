@@ -132,7 +132,7 @@ class Printer( object ):
 			self.snmpstatus = SNMPStatus.ERROR
 			self.snmpinfo = 'Error '
 		else:
-			log('Printer:updatestatus[%s]: unknown: %s'  % (self.name, self.snmpvalue))
+			log('[%s]: unknown: %s'  % (self.name, self.snmpvalue))
 			self.snmpstatus = SNMPStatus.UNKNOWN
 			self.snmpinfo = 'Unknown'
 
@@ -150,17 +150,18 @@ class Printer( object ):
 	#
 	def checkforjobs(self):
 		if len(self.printjobs) == 0:
-			#print('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s NO JOBS' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
+			#log('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s NO JOBS' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
+			#log('Printer:checkforjobs[%s] snmp: %s jobs: %s NO JOBS' % (self.name, self.snmpstatus, len(self.printjobs)))
 			return False
 		if self.snmpstatus != SNMPStatus.READY:
-			#print('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s SNMP NOT READY' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
+			log('[%s] snmp: %s jobs: %s SNMP NOT READY' % (self.name, self.snmpstatus, len(self.printjobs)))
 			return False
 
 		if self.sending:
-			#print('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s Already Sending' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
+			log('[%s] snmp: %s jobs: %s Already Sending' % (self.name, self.snmpstatus, len(self.printjobs)))
 			return False
 
-		#print('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s HAVE JOBS' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
+		log('[%s] snmp: %s jobs: %s HAVE JOBS' % (self.name, self.snmpstatus, len(self.printjobs)))
 
 		# get current job and make a copy for working with
 		self.currentjob = self.printjobs.pop(0)
@@ -180,7 +181,7 @@ class Printer( object ):
 	#
 	def finished(self, flag):
 		self.sending = False
-		#print('Printer:finished: %s' % (self))
+		log('[%s] finished' % (self.name))
 		job = self.currentjob
 		self.currentjob = None
 		#print('Printer:finished: currentjob: %s' % (job))

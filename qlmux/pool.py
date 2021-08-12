@@ -41,7 +41,7 @@ class Pool( object ):
         self.listenfd = None
         self.datafds = []
         self.lastprinter = None
-        log('Pool:[%s] queue: %s' % (self.name, self.queue.qsize()))
+        #log('[%s] queue size: %d' % (self.name, self.queue.qsize()))
         for p in self.printers:
                 log('Pool:[%s] primary: %s' % (self.name, p))
         for p in self.backups:
@@ -53,7 +53,7 @@ class Pool( object ):
     #
     def recv(self, data):
         self.queue.put(data)
-        #print('Pool:recv: pool: %s data: %s ' % (self.name, self.queue ))
+        log('[%s] recv queue size: %s ' % (self.name, self.queue ))
 
 
     # find the best printer from the list provided
@@ -61,16 +61,17 @@ class Pool( object ):
     def bestprinter(self, printers):
         t = None
         for p in printers:
-            #print('Pool:process[%s] printer: %s' % (self.name, p))
-            #print('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
+            log('Pool:process[%s] printer: %s' % (self.name, p))
+            log('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
 
             # check if media looks correct
             matched = False
             for m in self.media:
-                if not re.match(self.media, p.snmpmedia):
+                log('Pool: match %s %s' % (m, p.snmpmedia))
+                if not re.match(m, p.snmpmedia):
                     continue
-                else:
-                    matched = True
+                matched = True
+                break;
 
             if matched is False:
                 continue
@@ -99,7 +100,7 @@ class Pool( object ):
         if self.queue.qsize() == 0:
             return
 
-        #print('Pool:forward[%s] queue: %s' % (self.name, self.queue.qsize()))
+        log('[%s] forward queue size: %d' % (self.name, self.queue.qsize()))
 
         printer = self.bestprinter(self.printers)
 
