@@ -141,19 +141,19 @@ ARG0=$(basename $0)
 case ${TYPE} in
 type-Tag | type-Frame | type-Shoulder | type-Emergency )
     PRINTERCLASS=QL710W
-    QLPS2RASTER=/usr/local/bin/qlps2raster_62x100
+    QLPS2RASTER=qlps2raster_62x100
     POOL=$SMALL
     PAGES=""
     ;;
 type-Body)
     PRINTERCLASS=QL1060N
-    QLPS2RASTER=/usr/local/bin/qlps2raster_102x152
+    QLPS2RASTER=qlps2raster_102x152
     POOL=$LARGE
     PAGES=""
     ;;
 *)
     PRINTERCLASS=QL1060N
-    QLPS2RASTER=/usr/local/bin/qlps2raster_102x152
+    QLPS2RASTER=qlps2raster_102x152
     POOL=$LARGE
     PAGES=""
     ;;
@@ -185,20 +185,14 @@ esac
 #STATUS=$(netcat -w 1 127.0.0.1 9000  < /dev/null)
 STATUS=$(qlstatus -q < /dev/null)
 
-RC=$?
-
-if [ "$RC" -ne 0 ] ; then
-    lp -d ${PRINTERCLASS} ${PAGES}
-    echo
-    killme QLMux not running, could not get status, lp used
-fi
+#RC=$?
 
 if [ -n "${STATUS}" ] ; then
     echo Check Printers!
     echo "${STATUS}"
-
 fi
 
+set -x
 
 # PDF is on STDIN
 
