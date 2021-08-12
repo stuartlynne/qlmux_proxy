@@ -156,19 +156,19 @@ class Server( object):
                         if v.snmpstatus == SNMPStatus.NOTAVAILABLE:
                                 status += '\n'
                                 status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
-                                status += '[%8s: Check if powered off or not plugged in ]\n\n' % (p)
+                                status += '[%8s: Check if powered off or not plugged in ]\n\n' % ("")
                                 continue
 
                         if v.snmpstatus == SNMPStatus.COVEROPEN:
                                 status += '\n'
                                 status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
-                                status += '[%8s: Check printer cover is closed ]\n\n' % (p)
+                                status += '[%8s: Check printer cover is closed ]\n\n' % ("")
                                 continue
 
                         if v.snmpstatus == SNMPStatus.ERROR:
                                 status += '\n'
                                 status += '[%8s: %-67s ]\n' % (p, v.snmpinfo)
-                                status += '[%8s: Jammed, out of labels or wrong labels ]\n\n' % (p)
+                                status += '[%8s: Jammed, out of labels or wrong labels ]\n\n' % ("")
                                 continue
 
                         if v.model != v.snmpmodel:
