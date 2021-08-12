@@ -122,13 +122,13 @@ done
 case ${ANTENNA} in
 
 antenna-3 | antenna-4 )
-    SMALL=9002
-    LARGE=9004
+    SMALL=9102
+    LARGE=9104
     ;;
 
 antenna-0 | antenna-1 | antenna-2 | *)
-    SMALL=9001
-    LARGE=9003
+    SMALL=9101
+    LARGE=9103
     ;;
 esac
 
