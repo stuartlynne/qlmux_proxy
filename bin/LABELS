@@ -88,7 +88,7 @@ onerror() {
         exit 1
 }
 killme() {
-        /bin/echo -en "\n\n$*\n\n" 1>&2
+        /bin/echo -en "\n*****\n$*\n*****\n" 1>&2
         kill -1 $$ 2>&1 > /dev/null
 }
 
@@ -187,21 +187,16 @@ STATUS=$(qlstatus | sed -e '/^$/d' -e '/Ready/d')
 
 #RC=$?
 
-if [ -n "${STATUS}" ] ; then
-    echo Check Printers!
-    echo "${STATUS}"
-fi
-
 #set -x
 
 # PDF is on STDIN
 
 #${QLPS2RASTER} | netcat  127.0.0.1 ${POOL} || killme QLMux not running, could not send job
-${QLPS2RASTER} 127.0.0.1 ${POOL} || killme QLMux not running, could not send job
+#${QLPS2RASTER} 127.0.0.1 ${POOL} || killme QLMux not running, could not send job
 
 if [ -n "${STATUS}" ] ; then
-    sleep 10
+    echo "${STATUS}" 1>&2
+    exit 1
 fi
-
 exit 0
 
