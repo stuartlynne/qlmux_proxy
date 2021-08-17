@@ -195,7 +195,7 @@ STATUS=$(qlstatus | sed -e '/^$/d' -e '/Ready/d')
 #${QLPS2RASTER} 127.0.0.1 ${POOL} || killme QLMux not running, could not send job
 
 if [ -n "${STATUS}" ] ; then
-    echo "${STATUS}" 1>&2
+    echo "${STATUS}" | unix2dos 1>&2
     exit 1
 fi
 exit 0
