@@ -209,7 +209,7 @@ class Server( object):
                         if not match:
                                 status += '\n'
                                 status += '[%8s: Wrong Media ]\n' % (p)
-                                status += '[%8s: Have %s Need %s ]\n\n' % (p, v.snmpmedia, poolmedia)
+                                status += '[%8s: Have \'%s\' Need %s ]\n\n' % (p, v.snmpmedia, poolmedia)
                                 continue
 
                         status += '[%8s: %-26s %-40s ]\n' % (p, v.snmpmedia, v.snmpinfo)
