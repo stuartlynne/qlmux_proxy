@@ -1,0 +1,8 @@
+#!/bin/bash
+
+#set -x
+
+export PATH=../bin:../../bin:$PATH
+
+QLLABELS.py $1 < $1
+

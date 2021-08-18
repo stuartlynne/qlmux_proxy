@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -x
+
+
+cat $1 | ssh localhost -p 8022 -l racedb /usr/local/bin/QLLABELS.py $1 
+

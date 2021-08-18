@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -x
+
+#export PATH=../bin:../../bin:$PATH
+
+docker exec -i qlmuxd LABELS $1 
+
