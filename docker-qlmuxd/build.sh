@@ -3,5 +3,6 @@
 set -x
 
 docker image rm -f qlmuxd
-docker build -t "qlmuxd" .
+cd ..
+docker build -f docker-qlmuxd/Dockerfile -t "qlmuxd" .
 

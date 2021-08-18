@@ -3,7 +3,7 @@
 FROM frolvlad/alpine-python3:latest
 
 # update and get extra utilities
-RUN apk add --no-cache bash vim git less busybox-extras netcat-openbsd poppler poppler-utils dos2unix openssh  sudo
+RUN apk add --no-cache bash vim git less busybox-extras netcat-openbsd poppler poppler-utils dos2unix openssh 
 
 
 ENV TIME_ZONE=America/Vancouver
@@ -29,7 +29,8 @@ RUN python3 -m pip install --upgrade pip && \
 #
 #RUN cd / && git clone https://github.com/stuartlynne/qlmux.git 
 #RUN cp /qlmux/bin/QLLABELS.py /usr/local/bin
-COPY ./QLLABELS.py /usr/bin
+COPY ./bin/QLLABELS.py /usr/bin
+COPY ./tests /tests
 
 # run sshd with options to limit access to racedb, no password
 #
