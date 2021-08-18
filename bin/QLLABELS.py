@@ -208,7 +208,12 @@ except Exception as e:
 # Send *.rast to qlmuxd or direct to printer
 #
 s = socket.socket()
-s.connect((hostname, port))
+try:
+    s.connect((hostname, port))
+except Exception as e:
+    print('s.connect(%s,%d) %s' % ( hostname, port, e))
+    exit(1)
+
 for index in range(0, last+1):
     with open(f'/tmp/{fname}-{index}.rast', "rb") as f:
         while True:
