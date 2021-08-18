@@ -121,9 +121,14 @@ printers = config.QLLABELS_Printers()
 #   230489203498023809_bib-719_port-8000_antenna-0_type-Frame.pdf
 #
 # Numeric fields are converted to numbers to allow comparisons like params['antenna'] == 1
-params = { k:(int(v) if v.isdigit() else v) for k, v in (p.split('-') for p in os.path.splitext(fname)[0].split('_')[1:] ) }
 
-#print('params: %s' % (params))
+#{ print('p: %s' % ('%s-none' %p)) for p in os.path.splitext(fname)[0].split('_')[:]  }
+#{ print('k: %s v: %s' % (k, v)) for k, v in (p.split('-') for p in os.path.splitext(fname)[0].split('_')[:])  }
+
+# N.B. we have seen the random number as prefix and suffix, this allows us to ignore it at either end
+params = { k:(int(v) if v.isdigit() else v) for k, v in (('%s-none' % p).split('-')[:2] for p in os.path.splitext(fname)[0].split('_')[:] ) }
+
+print('params: %s' % (params))
 
 try:
     size = sizes[params['type']]
