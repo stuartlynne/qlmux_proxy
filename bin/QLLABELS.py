@@ -63,6 +63,7 @@ import json
 
 import pdf2image
 from pdf2image import convert_from_path
+from pdf2image import convert_from_bytes
 
 import sys
 import datetime
@@ -170,7 +171,9 @@ print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, 
 # convert PDF to PNG images using pdf2image (poppler), data from stdin,
 # then save each image separately as a png.
 #
-images = convert_from_path('/dev/stdin', size=(1109, 696), dpi=280, grayscale=True)
+#images = convert_from_path('/dev/stdin', size=(1109, 696), dpi=280, grayscale=True)
+bytes = sys.stdin.read()
+images = convert_from_bytes(bytes, size=(1109, 696), dpi=280, grayscale=True)
 
 last = 0
 for index, image in enumerate(images):
