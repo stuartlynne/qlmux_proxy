@@ -85,7 +85,7 @@ except:
     usage('No filename arguement')
 
 
-print('fname: %s' % (fname))
+log('fname: %s' % (fname))
 
 
 # parse qlabels.cfg to get:
@@ -129,7 +129,7 @@ printers = config.QLLABELS_Printers()
 # N.B. we have seen the random number as prefix and suffix, this allows us to ignore it at either end
 params = { k:(int(v) if v.isdigit() else v) for k, v in (('%s-none' % p).split('-')[:2] for p in os.path.splitext(fname)[0].split('_')[:] ) }
 
-print('params: %s' % (params))
+#print('params: %s' % (params))
 
 try:
     size = sizes[params['type']]
@@ -165,7 +165,8 @@ except:
     usage('Cannot find one of hostname, port, model, labelsize: %s' % (printer))
     usage()
 
-print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, labelsize))
+
+#print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, labelsize))
 
 
 # convert PDF to PNG images using pdf2image (poppler), data from stdin,
@@ -173,7 +174,17 @@ print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, 
 #
 #images = convert_from_path('/dev/stdin', size=(1109, 696), dpi=280, grayscale=True)
 #bytes = sys.stdin.buffer.read()
-images = convert_from_bytes(sys.stdin.buffer.read(), size=(1109, 696), dpi=280, grayscale=True)
+
+if labelsize == "62" or labelsize == "62x100":
+    size = (1109, 696)
+elif labelsize == "102" or labelsize == "102x152":
+    size = (1660, 1164)
+else:
+    log("Unknown labelsize %s" % (labelsize))
+    exit(1)
+
+#images = convert_from_bytes(sys.stdin.buffer.read(), size=(1109, 696), dpi=280, grayscale=True)
+images = convert_from_bytes(sys.stdin.buffer.read(), size=size, dpi=280, grayscale=True)
 
 last = 0
 for index, image in enumerate(images):
@@ -185,7 +196,7 @@ for index, image in enumerate(images):
 #
 if last >= 1:
     for index in range(0, last):
-        print('image: %d NO-CUT' % index)
+        #print('image: %d NO-CUT' % index)
         try:
             subprocess.check_call([
                 'brother_ql_create', 
@@ -219,7 +230,7 @@ s = socket.socket()
 try:
     s.connect((hostname, port))
 except Exception as e:
-    print('s.connect(%s,%d) %s' % ( hostname, port, e))
+    log('s.connect(%s,%d) %s' % ( hostname, port, e))
     exit(1)
 
 for index in range(0, last+1):
