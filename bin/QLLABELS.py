@@ -172,8 +172,8 @@ print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, 
 # then save each image separately as a png.
 #
 #images = convert_from_path('/dev/stdin', size=(1109, 696), dpi=280, grayscale=True)
-bytes = sys.stdin.read()
-images = convert_from_bytes(bytes, size=(1109, 696), dpi=280, grayscale=True)
+#bytes = sys.stdin.buffer.read()
+images = convert_from_bytes(sys.stdin.buffer.read(), size=(1109, 696), dpi=280, grayscale=True)
 
 last = 0
 for index, image in enumerate(images):
