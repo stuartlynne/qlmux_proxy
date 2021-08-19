@@ -4,5 +4,5 @@ set -x
 
 docker image rm -f qlmuxd
 cd ..
-docker build -f docker-qlmuxd/Dockerfile -t "qlmuxd" .
+docker build --no-cache -f docker-qlmuxd/Dockerfile -t "qlmuxd" .
 
