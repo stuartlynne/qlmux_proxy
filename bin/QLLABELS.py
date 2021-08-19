@@ -79,12 +79,12 @@ def log(s):
 # get the filename provided as the first arguement
 #
 try:
-    fname = sys.argv[1]
+    fname = os.path.basename(sys.argv[1])
 except:
     usage('No filename arguement')
 
 
-#print('fname: %s' % (fname))
+print('fname: %s' % (fname))
 
 
 # parse qlabels.cfg to get:
