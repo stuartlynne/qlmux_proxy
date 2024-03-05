@@ -67,7 +67,7 @@ class Pool( object ):
             # check if media looks correct
             matched = False
             for m in self.media:
-                log('Pool: match %s %s' % (m, p.snmpmedia))
+                log('Pool[%s]: match %s %s' % (self.name, m, p.snmpmedia))
                 if not re.match(m, p.snmpmedia):
                     continue
                 matched = True
