@@ -1,8 +1,8 @@
 #!/bin/bash
 if [ -n "$1" -a "$1" = "-q" ] ; then
-    netcat -d 127.0.0.1 9100 > /dev/null 2>&1
+    nc -d 127.0.0.1 9100 > /dev/null 2>&1
 else
-    netcat -d 127.0.0.1 9100 #|| echo qlstatus: QLMuxd not running
+    nc -d 127.0.0.1 9100 #|| echo qlstatus: QLMuxd not running
 fi
 
 

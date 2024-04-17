@@ -1,8 +1,12 @@
 #!/bin/bash
 
-set -x
+TAG="stuartlynne/qllabels_qlmuxd:20240305d"
 
-docker image rm -f qlmuxd
+set -x
 cd ..
-docker build --no-cache -f docker-qlmuxd/Dockerfile -t "qlmuxd" .
+
+docker image rm -f qllabels_qlmuxd
+docker image rm -f ${TAG}
+docker build --no-cache -f docker-qlmuxd/Dockerfile -t "${TAG}" . || exit 1
+docker push ${TAG}
 

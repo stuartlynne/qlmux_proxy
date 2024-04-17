@@ -45,4 +45,4 @@ RUN python3 -m pip install json-cfg
 RUN cd /qlmux && make sdist install install-support
 
 
-ENTRYPOINT ["/usr/local/bin/qlmuxd"]
+ENTRYPOINT ["/bin/sh", "-c", "/usr/local/bin/qlmuxd && ssh -D -o PermitEmptyPasswords=yes -o PubkeyAuthentication=no -o PermitEm  ptyPasswords=yes -o PrintMotd=no"]
