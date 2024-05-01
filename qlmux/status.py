@@ -21,45 +21,42 @@ from .printer import PrinterStatus, Printer
 # StatusClient
 #
 class StatusRequest( object ):
-	def __init__(self, fd, data):
-		self.fd = fd
-		self.statusSent = False
-		self.data = (data)
+    def __init__(self, fd, data):
+        self.fd = fd
+        self.statusSent = False
+        self.data = (data)
 
-	def getsentdata(self):
-		return statusRequest.statusSent
+    def getsentdata(self):
+        return statusRequest.statusSent
 
-	def setsentdata(self):
-		statusRequest = self.statusRequests[client]
-		statusRequest.statusSent = True
+    def setsentdata(self):
+        statusRequest = self.statusRequests[client]
+        statusRequest.statusSent = True
 
 
 #
 # Status Port
 #
 class StatusPort( object ):
-	def __init__(self, name, port):
-		self.name = name
-		self.port = port
-		self.statusRequests = []
+    def __init__(self, name, port):
+        self.name = name
+        self.port = port
+        self.statusRequests = []
 
-	def add(self, clientfd, data):
-		self.statusRequests[clientfd] = StatusRequest(clientfd)
+    def add(self, clientfd, data):
+        self.statusRequests[clientfd] = StatusRequest(clientfd)
 
-	def remove(self, clientfd):
-		del sel.statusRequests[clientfd]
+    def remove(self, clientfd):
+        del sel.statusRequests[clientfd]
 
-	def getsenddata(self):
-		return list(self.currentjob.data).encode("utf-8")
-
-
-	def getsentdata(self, client):
-		statusRequest = self.statusRequests[client]
-		return statusRequest.getsentdata()
-
-	def setsentdata(self, client):
-		statusRequest = self.statusRequests[client]
-		statusRequest.setsentdata()
+    def getsenddata(self):
+        return list(self.currentjob.data).encode("utf-8")
 
 
+    def getsentdata(self, client):
+        statusRequest = self.statusRequests[client]
+        return statusRequest.getsentdata()
 
+    def setsentdata(self, client):
+        statusRequest = self.statusRequests[client]
+        statusRequest.setsentdata()

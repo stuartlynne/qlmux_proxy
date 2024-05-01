@@ -43,9 +43,9 @@ class Pool( object ):
         self.lastprinter = None
         #log('[%s] queue size: %d' % (self.name, self.queue.qsize()))
         for p in self.printers:
-                log('Pool:[%s] primary: %s' % (self.name, p))
+            log('Pool:[%s] primary: %s' % (self.name, p))
         for p in self.backups:
-                log('Pool:[%s] backups: %s' % (self.name, p))
+            log('Pool:[%s] backups: %s' % (self.name, p))
         #self.setlistenfd(None)
 
 
@@ -77,10 +77,10 @@ class Pool( object ):
                 continue
 
             # check if model is correct
-            #if p.snmpmodel != p.model: 
+            #if p.snmpmodel != p.model:
             #    continue
             # check if READY
-            if p.snmpstatus != SNMPStatus.READY and p.snmpstatus != SNMPStatus.BUSY and p.snmpstatus != SNMPStatus.PRINTING: 
+            if p.snmpstatus != SNMPStatus.READY and p.snmpstatus != SNMPStatus.BUSY and p.snmpstatus != SNMPStatus.PRINTING:
                 continue
 
             if t is None:
@@ -123,6 +123,3 @@ class Pool( object ):
 
     def __repr__(self):
         return "\nPool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
-
-
-

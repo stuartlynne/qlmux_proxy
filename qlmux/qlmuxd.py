@@ -32,68 +32,68 @@ getTimeNow = datetime.datetime.now
 
 def main():
 
-        cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
+    cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
 
-        config = None
-        for c in cfgs:
-                try:
-                        config = jsoncfg.load_config(c)
-                        break
-                except Exception as e:
-                        log('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
-                        continue
+    config = None
+    for c in cfgs:
+        try:
+            config = jsoncfg.load_config(c)
+            break
+        except Exception as e:
+            log('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
+            continue
 
-        if config is None:
-                log('QLMuxd: error cannot open either: %s' % cfgs)
-                exit(1)
+    if config is None:
+        log('QLMuxd: error cannot open either: %s' % cfgs)
+        exit(1)
 
-        Printers = dict()
-        Pools = dict()
-        StatusPorts = dict()
+    Printers = dict()
+    Pools = dict()
+    StatusPorts = dict()
 
-        #print('config: %s' % config)
-        ports = config.QLMux_Ports()
-        log('Config: Ports: %s' % (ports))
-        for v in ports:
-                log('Config: Pool Port: %s' % (v))
-        ports = config.QLMux_StatusPorts()
-        for v in ports:
-                log('Config: Status Port: %s' % (v))
+    #print('config: %s' % config)
+    ports = config.QLMux_Ports()
+    log('Config: Ports: %s' % (ports))
+    for v in ports:
+        log('Config: Pool Port: %s' % (v))
+    ports = config.QLMux_StatusPorts()
+    for v in ports:
+        log('Config: Status Port: %s' % (v))
 
-        log('Config: Printers')
-        for QLMux_Printer in config.QLMux_Printers:
-                log('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
-                name = QLMux_Printer.name()
-                hostname = QLMux_Printer.hostname()
-                port = QLMux_Printer.port()
-                model = QLMux_Printer.model()
-                Printers[QLMux_Printer.name()] = Printer(name, hostname, port, model);
+    log('Config: Printers')
+    for QLMux_Printer in config.QLMux_Printers:
+        log('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
+        name = QLMux_Printer.name()
+        hostname = QLMux_Printer.hostname()
+        port = QLMux_Printer.port()
+        model = QLMux_Printer.model()
+        Printers[QLMux_Printer.name()] = Printer(name, hostname, port, model);
 
-        SNMP = SNMPServer(Printers)
-        sleep(2)
+    SNMP = SNMPServer(Printers)
+    sleep(2)
 
-        log('Config: Pools')
-        for QLMux_Pool in config.QLMux_Pools:
+    log('Config: Pools')
+    for QLMux_Pool in config.QLMux_Pools:
 
-                log('Config: Pool: name: %s' % (QLMux_Pool))
+        log('Config: Pool: name: %s' % (QLMux_Pool))
 
-                primaries = QLMux_Pool.primaries()
-                backups = QLMux_Pool.backups()
-                media = QLMux_Pool.media()
+        primaries = QLMux_Pool.primaries()
+        backups = QLMux_Pool.backups()
+        media = QLMux_Pool.media()
 
-                log('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
-                        (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups, media))
+        log('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
+                (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups, media))
 
-                Pools[QLMux_Pool.name()] = Pool(
-                        QLMux_Pool.name(),
-                        QLMux_Pool.listen(),
-                        QLMux_Pool.media(),
-                        [ Printers[p] for p in primaries],
-                        [ Printers[b] for b in backups], )
+        Pools[QLMux_Pool.name()] = Pool(
+                QLMux_Pool.name(),
+                QLMux_Pool.listen(),
+                QLMux_Pool.media(),
+                [ Printers[p] for p in primaries],
+                [ Printers[b] for b in backups], )
 
 
-        for QLMux_StatusPort in config.QLMux_StatusPorts:
-                StatusPorts[QLMux_StatusPort.name()] = StatusPort(QLMux_StatusPort.name(), QLMux_StatusPort.port())
+    for QLMux_StatusPort in config.QLMux_StatusPorts:
+        StatusPorts[QLMux_StatusPort.name()] = StatusPort(QLMux_StatusPort.name(), QLMux_StatusPort.port())
 
 
 #        Printers = {
@@ -118,45 +118,45 @@ def main():
 
 
 
-        #SNMP = SNMPServer(Printers)
-        sleep(2)
-        MyServer = Server(Pools, StatusPorts, Printers)
+    #SNMP = SNMPServer(Printers)
+    sleep(2)
+    MyServer = Server(Pools, StatusPorts, Printers)
 
-        firsttime = True
-        lasttime = getTimeNow()
-
-
-        while True:
-
-                #print('\n******************************')
-                #print('\nMain: .... %3.1f' % (getTimeNow() - lasttime).total_seconds())
+    firsttime = True
+    lasttime = getTimeNow()
 
 
-                #if firsttime or (getTimeNow() - lasttime).total_seconds() > 2:
-                #	print('\nMain: updating status ....')
-                #	firsttime = False
-                #	for p,v in Printers.items():
-                #		v.updatestatus()
-                #	lasttime = getTimeNow()
+    while True:
+
+        #print('\n******************************')
+        #print('\nMain: .... %3.1f' % (getTimeNow() - lasttime).total_seconds())
 
 
-                #print('\nMain: Listening ....')
-                if not MyServer.select():
-                        log("exiting")
-                        break
+        #if firsttime or (getTimeNow() - lasttime).total_seconds() > 2:
+        #       print('\nMain: updating status ....')
+        #       firsttime = False
+        #       for p,v in Printers.items():
+        #               v.updatestatus()
+        #       lasttime = getTimeNow()
 
-                #print('\nMain: Processing Received ....')
-                for p, v in Pools.items():
-                        v.forward()
 
-                #print('\nMain: Forwarding Queued ....')
-                for p, v in Printers.items():
-                        if v.checkforjobs():
-                                MyServer.startSendJob(v)
+        #print('\nMain: Listening ....')
+        if not MyServer.select():
+            log("exiting")
+            break
 
-                #for p, v in StatusPorts.items():
-                #	if v.checkforjobs():
-                #		Server.startsend(v)
+        #print('\nMain: Processing Received ....')
+        for p, v in Pools.items():
+            v.forward()
+
+        #print('\nMain: Forwarding Queued ....')
+        for p, v in Printers.items():
+            if v.checkforjobs():
+                MyServer.startSendJob(v)
+
+        #for p, v in StatusPorts.items():
+        #       if v.checkforjobs():
+        #               Server.startsend(v)
 
 
 
@@ -198,11 +198,11 @@ def main():
 #   4. Ensure that all labels are printed, duplicates are allowed.
 #
 # Depending on the printer status, when data has arrived and is in the DataQueue, QLMux will attempt
-# to deliver to the first available printer in the associated Pool. 
+# to deliver to the first available printer in the associated Pool.
 #
 
 
-# 
+#
 # Printer Status
 #
 # There appear to be several ways that we can detect problems with printing.
@@ -214,11 +214,8 @@ def main():
 #
 
 #
-# 
+#
 
 
 if __name__ == '__main__':
-        main()
-
-
-
+    main()

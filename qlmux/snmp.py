@@ -18,13 +18,13 @@ from .utils import *
 
 
 class SNMPStatus (Enum):
-	UNKNOWN = 0
-	NOTAVAILABLE = 1
-	READY = 2
-	BUSY = 3
-	PRINTING = 4
-	COVEROPEN = 5
-	ERROR = 6
+    UNKNOWN = 0
+    NOTAVAILABLE = 1
+    READY = 2
+    BUSY = 3
+    PRINTING = 4
+    COVEROPEN = 5
+    ERROR = 6
 
 
 #
@@ -34,20 +34,16 @@ class SNMPStatus (Enum):
 #
 class SNMPServer( object ):
 
-	def __init__(self, printers):
-		self.printers = printers
-		self.updateProcess = Process( name='SNMPUpdateProcess', target=self.SNMPProcess, )
-		self.updateProcess.daemon = True
-		self.updateProcess.start()
+    def __init__(self, printers):
+        self.printers = printers
+        self.updateProcess = Process( name='SNMPUpdateProcess', target=self.SNMPProcess, )
+        self.updateProcess.daemon = True
+        self.updateProcess.start()
 
-	def SNMPProcess(self):
+    def SNMPProcess(self):
 
-		log('SNMPServer:SNMPProcess started')
-		while True:
-			for p,v in self.printers.items():
-				v.updatestatus()
-			sleep(2)
-
-
-
-
+        log('SNMPServer:SNMPProcess started')
+        while True:
+            for p,v in self.printers.items():
+                v.updatestatus()
+            sleep(2)
