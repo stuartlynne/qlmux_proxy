@@ -12,7 +12,9 @@ import re
 import select
 import socket
 from threading import Thread as Process
-from time import sleep
+from time import time, sleep
+import traceback
+
 from .utils import *
 
 from .snmp import SNMPStatus
@@ -21,14 +23,22 @@ from .snmp import SNMPStatus
 getTimeNow = datetime.datetime.now
 
 def safe_str(p,s1,msg):
-    s = ''
     try:
+        if '\x00' in s1:
+            log('%s: safe_str[%s]: IGNORING for null bytes' % (p, msg))
+            return ''
+
         return str(s1)
         #print('safe_str[%s]: OK: "%s"' % (msg, s))
 
     except UnicodeEncodeError:
         s = s1.encode('ascii', 'ignore').decode('ascii')
         log('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
+
+    except Exception as e:
+        log('updatestatus[%s]: exception: %s' % (self.name, e))
+        log(traceback.format_exc(), )
+        self.snmpmedia = ''
     return ''
 
 
@@ -81,10 +91,14 @@ class Printer( object ):
         self.sending = False
         self.jobsFinished = 0
         self.errors = 0
+        self.seen()
+
 
         log('Printer:__init__: name: %s hostname: %s sysdescr: %s %s %s %s %s' % (self.name, self.hostname, self.sysdescr, self.macaddress, self.serialnumber, self.testport, self.model))
-
         self.snmpsession = Session(hostname=hostname, community='public', version=1, timeout=.2, retries=0)
+
+    def seen(self):
+        self.lastSeen = time()
 
     def __str__(self):
         return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
@@ -110,7 +124,9 @@ class Printer( object ):
             s = safe_str(self.name, data.value, 'SNMPMedia')
             if s != '':
                 self.snmpmedia = s
-        except:
+        except Exception as e:
+            log('updatestatus[%s]: exception: %s' % (self.name, e))
+            log(traceback.format_exc(), )
             self.snmpmedia = ''
 
         try:
@@ -121,29 +137,22 @@ class Printer( object ):
         except:
             self.snmpmodel = ''
 
-        if self.snmpvalue == '':
-            self.snmpstatus = SNMPStatus.NOTAVAILABLE
-            self.snmpinfo = 'Not Available'
-        elif re.match(r'READY', self.snmpvalue):
-            self.snmpstatus = SNMPStatus.READY
-            self.snmpinfo = 'Ready'
-        elif re.match(r'BUSY', self.snmpvalue):
-            self.snmpstatus = SNMPStatus.BUSY
-            self.snmpinfo = 'Busy'
-        elif re.match(r'PRINTING', self.snmpvalue):
-            self.snmpstatus = SNMPStatus.PRINTING
-            self.snmpinfo = 'Printing'
-        elif re.match(r'COVER OPEN', self.snmpvalue):
-            self.snmpstatus = SNMPStatus.COVEROPEN
-            self.snmpinfo = 'Printer Cover Open'
-        elif re.match(r'ERROR', self.snmpvalue):
-            self.snmpstatus = SNMPStatus.ERROR
-            self.snmpinfo = 'Error '
-        else:
-            log('[%s]: unknown: %s'  % (self.name, self.snmpvalue))
-            self.snmpstatus = SNMPStatus.UNKNOWN
-            self.snmpinfo = 'Unknown'
 
+        snmptests = [
+                (SNMPStatus.NOTAVAILABLE, 'NOT AVAILABLE', 'Not Available'),
+                (SNMPStatus.READY, 'READY', 'Ready'),
+                (SNMPStatus.BUSY, 'BUSY', 'Busy'),
+                (SNMPStatus.PRINTING, 'PRINTING', 'Printing'),
+                (SNMPStatus.COVEROPEN, 'COVER OPEN', 'Printer Cover Open'),
+                (SNMPStatus.ERROR, 'ERROR', 'Error'),
+                (SNMPStatus.UNKNOWN, 'UNKNOWN', 'Unknown')
+                ]
+
+        for s in snmptests:
+            if re.match(r'%s' % s[1], self.snmpvalue):
+                self.snmpstatus = s[0]
+                self.snmpinfo = s[2]
+                break
         if oldstatus != self.snmpstatus:
             #print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
             log('[%s] %s -> %s' % (self.name, oldstatus, self.snmpstatus.name))
