@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Set encoding default for python 2.7
 # vim: syntax=python expandtab
 
 import sys

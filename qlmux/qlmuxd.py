@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Set encoding default for python 2.7
 # vim: syntax=python expandtab
 
 __version__ = "0.3.4"
