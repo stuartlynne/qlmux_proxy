@@ -44,11 +44,12 @@ class QLMuxd(Thread):
 
     QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
 
-    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None):
+    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None, snmpStatusQueue=None):
         super(QLMuxd, self).__init__()
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
+        self.snmpStatusQueue = snmpStatusQueue
 
         self.Printers = dict()
         self.Pools = dict()
@@ -69,20 +70,11 @@ class QLMuxd(Thread):
         #    log('QLMuxd: error cannot open either: %s' % cfgs)
         #    exit(1)
 
-    def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
-        # XXX need to use serial number to identify printers
-        if hostname not in self.Printers:
-            self.Printers[hostname] = Printer(name, hostname, sysdescr, macAddress, serialNumber, port, model, size)
-            for pool in self.QLMux_Pools:
-                if size in pool['name']:
-                    self.Pools[pool['name']].addPrinter(self.Printers[hostname])
 
         # XXX Need to check if name or model has changed
 
     def run(self):
         # finished
-
-
         #print('config: %s' % config)
 
         log('Config: Printers')
@@ -90,7 +82,6 @@ class QLMuxd(Thread):
         SNMP = SNMPServer(self.Printers)
         for pool in self.QLMux_Pools:
             self.Pools[pool['name']] = Pool( name=pool['name'], listen=pool['listen'], media=pool['media'],)
-
 
         for port in self.QLMux_StatusPorts:
             self.StatusPorts[port['name']] = StatusPort(port['name'], port['listen'])
@@ -142,23 +133,22 @@ class QLMuxd(Thread):
                           ('NC-16002w', 'QL-710W', 'small'), 
                           ('NC-18002w', 'QL-720NW', 'small'), ]
 
-            def dotest(matchlist, test):
-                for x in matchlist:
-                    if x in test:
-                        return True
-                return False
-
             while not self.snmpDiscoveredQueue.empty():
                 hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
-
-
                 if 'Brother' not in sysdescr:
                     continue
                 for nc, m, s in QLPrinters:
                     if nc not in sysdescr:
                         continue
-                    self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
-                    break
+                    #self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
+                    #def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
+                        # XXX need to use serial number to identify printers
+                    if hostaddr not in self.Printers:
+                        self.Printers[hostaddr] = Printer(hostname, hostaddr, sysdescr, macAddress, serialNumber, port, m, s)
+                        for pool in self.QLMux_Pools:
+                            if s in pool['name']:
+                                self.Pools[pool['name']].addPrinter(self.Printers[hostaddr])
+                                break
 
 
                 #if p in Printers:
@@ -259,6 +249,7 @@ def qlmuxmain():
     changeEvent = Event()
     stopEvent = Event()
     snmpDiscoveredQueue = Queue()
+    snmpStatusQueue = Queue()
 
     def signal_handler(signal, frame):
         print('QLMuxd: signal_handler')
@@ -277,7 +268,7 @@ def qlmuxmain():
                                    snmpDiscoveredQueue=snmpDiscoveredQueue))
     [t.start() for t in threads]
     
-    server = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue)
+    server = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue, snmpStatusQueue=snmpStatusQueue)
     log('qlmuxmain: QLMuxd server created')
     server.start()
     log('qlmuxmain: waiting for stopEvent')
