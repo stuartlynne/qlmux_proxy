@@ -31,29 +31,49 @@ getTimeNow = datetime.datetime.now
 #
 class Pool( object ):
 
-    def __init__(self, name, port, media, printers, backups):
+    def __init__(self, name=None, listen=None, media=None, printers=None, backups=None):
+        log('Pool:[%s:%s] media: %s ' % (name, listen, media))
         self.name = name
-        self.printers = printers
-        self.backups = backups
+        self.printers = printers if printers is not None else []
+        self.backups = backups if backups is not None else []
         self.queue = Queue()
-        self.port = port
+        self.listen = listen
         self.media = media
         self.listenfd = None
         self.datafds = []
         self.lastprinter = None
-        #log('[%s] queue size: %d' % (self.name, self.queue.qsize()))
+        self.jobsReceived = 0
+        self.jobsForwarded = 0
         for p in self.printers:
             log('Pool:[%s] primary: %s' % (self.name, p))
         for p in self.backups:
             log('Pool:[%s] backups: %s' % (self.name, p))
         #self.setlistenfd(None)
+    
+    def __str__(self):
+        return "%s Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
 
+    # XXX need to use serial number to identify printers, not name
+    def addPrinter(self, printer, primary=False):
+        if primary is True:
+            if printer not in self.printers:
+                self.printers.append(printer)
+        else:
+            if printer not in self.backups:
+                self.backups.append(printer)
+
+    def removePrinter(self, printer): 
+        if printer in self.printers:
+            self.printers.remove(printer)
+        if printer in self.backups:
+            self.backups.remove(printer)
 
     # receive data to be printed
     #
     def recv(self, data):
         self.queue.put(data)
-        log('[%s] recv queue size: %s ' % (self.name, self.queue ))
+        self.jobsReceived += 1
+        log('[%s] jobsReceived: %s recv queue size: %s ' % (self.name, self.jobsReceived, self.queue ))
 
 
     # find the best printer from the list provided
@@ -100,7 +120,7 @@ class Pool( object ):
         if self.queue.qsize() == 0:
             return
 
-        log('[%s] forward queue size: %d' % (self.name, self.queue.qsize()))
+        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.queue.qsize()))
 
         printer = self.bestprinter(self.printers)
 
@@ -120,6 +140,7 @@ class Pool( object ):
             return
         self.lastprinter = printer
         printer.add(self, self.queue.get())
+        self.jobsForwarded += 1
 
     def __repr__(self):
         return "\nPool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)

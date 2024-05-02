@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Set encoding default for python 2.7
-# vim: syntax=python noexpandtab
+# vim: syntax=python expandtab
 
 import sys
 import itertools
@@ -60,11 +60,15 @@ class Job( object ):
 #
 class Printer( object ):
 
-    def __init__(self, name, hostname, testport, model):
+    def __init__(self, name, hostname, sysdescr, macaddress, serialnumber, testport, model, size):
         self.name = name
         self.hostname = hostname
+        self.sysdescr = sysdescr
+        self.macaddress = macaddress
+        self.serialnumber = serialnumber
         self.testport = testport
         self.model = model
+        self.size = size
         self.snmpstatus = SNMPStatus.UNKNOWN
         self.snmpvalue = ''
         self.snmpinfo = ''
@@ -76,11 +80,16 @@ class Printer( object ):
         self.currentjob = None
         self.senddata = None
         self.sending = False
-        self.jobsfinished = 0
+        self.jobsFinished = 0
         self.errors = 0
+
+        log('Printer:__init__: name: %s hostname: %s sysdescr: %s %s %s %s %s' % (self.name, self.hostname, self.sysdescr, self.macaddress, self.serialnumber, self.testport, self.model))
 
         self.snmpsession = Session(hostname=hostname, community='public', version=1, timeout=.2, retries=0)
 
+    def __str__(self):
+        return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
+                self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
 
     # updatestatus
     # This is called from the SNMP process to update the printer status using SNMP
@@ -194,7 +203,7 @@ class Printer( object ):
             pool.recv(job.data)
             self.errors += 1
         else:
-            self.jobsfinished += 1
+            self.jobsFinished += 1
 
     def __repr__(self):
         return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (

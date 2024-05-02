@@ -12,9 +12,12 @@ import sys
 import datetime
 import jsoncfg
 import json
-
-
 from time import sleep
+from queue import Queue
+from threading import Thread, Event
+import signal
+from pysnmp.proto import api
+
 
 from .utils import log
 
@@ -23,6 +26,7 @@ from .printer import PrinterStatus, Printer
 from .pool import Pool
 from .status import StatusPort
 from .snmp import SNMPStatus, SNMPServer
+from .discovery import DiscoveryThread
 
 getTimeNow = datetime.datetime.now
 
@@ -30,133 +34,169 @@ getTimeNow = datetime.datetime.now
 #        print('%s %s' % (getTimeNow().strftime('%H:%M:%S'), s))
 
 
-def main():
+class QLMuxd(Thread):
 
-    cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
+    QLMux_Pools = [
+        {'name':"small_left", 'listen':9101, 'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",             ],}, 
+        {'name':"small_right", 'listen':9102, 'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",            ],}, 
+        {'name':"large_left", 'listen':9103, 'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"", ],}, 
+        {'name':"large_right", 'listen':9104, 'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"",],}, 
+        ]
 
-    config = None
-    for c in cfgs:
-        try:
-            config = jsoncfg.load_config(c)
-            break
-        except Exception as e:
-            log('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
-            continue
+    QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
 
-    if config is None:
-        log('QLMuxd: error cannot open either: %s' % cfgs)
-        exit(1)
+    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None):
+        super(QLMuxd, self).__init__()
+        self.stopEvent = stopEvent
+        self.changeEvent = changeEvent
+        self.snmpDiscoveredQueue = snmpDiscoveredQueue
 
-    Printers = dict()
-    Pools = dict()
-    StatusPorts = dict()
+        self.Printers = dict()
+        self.Pools = dict()
+        self.StatusPorts = dict()
 
-    #print('config: %s' % config)
-    ports = config.QLMux_Ports()
-    log('Config: Ports: %s' % (ports))
-    for v in ports:
-        log('Config: Pool Port: %s' % (v))
-    ports = config.QLMux_StatusPorts()
-    for v in ports:
-        log('Config: Status Port: %s' % (v))
+        cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
 
-    log('Config: Printers')
-    for QLMux_Printer in config.QLMux_Printers:
-        log('Config: Printer: name: %s port: %s model: %s' % (QLMux_Printer.name(), QLMux_Printer.port(), QLMux_Printer.model()))
-        name = QLMux_Printer.name()
-        hostname = QLMux_Printer.hostname()
-        port = QLMux_Printer.port()
-        model = QLMux_Printer.model()
-        Printers[QLMux_Printer.name()] = Printer(name, hostname, port, model);
+        #self.config = None
+        #for c in cfgs:
+        #    try:
+        #        self.config = jsoncfg.load_config(c)
+        #        break
+        #    except Exception as e:
+        #        log('QLMuxd: error cannot open %s, Exception: %s' % (c, e))
+        #        continue
 
-    SNMP = SNMPServer(Printers)
-    sleep(2)
+        #if self.config is None:
+        #    log('QLMuxd: error cannot open either: %s' % cfgs)
+        #    exit(1)
 
-    log('Config: Pools')
-    for QLMux_Pool in config.QLMux_Pools:
+    def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
+        # XXX need to use serial number to identify printers
+        if hostname not in self.Printers:
+            self.Printers[hostname] = Printer(name, hostname, sysdescr, macAddress, serialNumber, port, model, size)
+            for pool in self.QLMux_Pools:
+                if size in pool['name']:
+                    self.Pools[pool['name']].addPrinter(self.Printers[hostname])
 
-        log('Config: Pool: name: %s' % (QLMux_Pool))
+        # XXX Need to check if name or model has changed
 
-        primaries = QLMux_Pool.primaries()
-        backups = QLMux_Pool.backups()
-        media = QLMux_Pool.media()
-
-        log('Config: Pool: name: %s port: %s primaries: %s backups: %s media: %s' %
-                (QLMux_Pool.name(), QLMux_Pool.listen(), primaries, backups, media))
-
-        Pools[QLMux_Pool.name()] = Pool(
-                QLMux_Pool.name(),
-                QLMux_Pool.listen(),
-                QLMux_Pool.media(),
-                [ Printers[p] for p in primaries],
-                [ Printers[b] for b in backups], )
+    def run(self):
+        # finished
 
 
-    for QLMux_StatusPort in config.QLMux_StatusPorts:
-        StatusPorts[QLMux_StatusPort.name()] = StatusPort(QLMux_StatusPort.name(), QLMux_StatusPort.port())
+        #print('config: %s' % config)
+
+        log('Config: Printers')
+
+        SNMP = SNMPServer(self.Printers)
+        for pool in self.QLMux_Pools:
+            self.Pools[pool['name']] = Pool( name=pool['name'], listen=pool['listen'], media=pool['media'],)
 
 
-#        Printers = {
-#            'ql710w1': Printer('ql710w1', 9101),
-#            'ql710w2': Printer('ql710w2', 9102),
-#            'ql710w3': Printer('ql710w3', 9103),
-#            #'ql1060n0': Printer('192.168.40.99', 9106),
-#            'ql1060n1': Printer('ql1060n1', 9104),
-#            'ql1060n2': Printer('ql1060n2', 9105),
-#        }
-#
-#        OldPools = {
-#            'small1': Pool('small1', 9001, (Printers['ql710w1'], Printers['ql710w2']), (Printers['ql710w3'],)),
-#            'small2': Pool('small2', 9002, (Printers['ql710w3'], Printers['ql710w2']), (Printers['ql710w1'],)),
-#            'large1': Pool('large1', 9003, (Printers['ql1060n1'], ), (Printers['ql1060n2'],)),
-#            'large2': Pool('large2', 9004, (Printers['ql1060n2'], ), (Printers['ql1060n1'],)),
-#        }
-#
-#        StatusPorts = {
-#            'snmp': StatusPort('snmp', 9000),
-#        }
+        for port in self.QLMux_StatusPorts:
+            self.StatusPorts[port['name']] = StatusPort(port['name'], port['listen'])
+
+
+    #        Printers = {
+    #            'ql710w1': Printer('ql710w1', 9101),
+    #            'ql710w2': Printer('ql710w2', 9102),
+    #            'ql710w3': Printer('ql710w3', 9103),
+    #            #'ql1060n0': Printer('192.168.40.99', 9106),
+    #            'ql1060n1': Printer('ql1060n1', 9104),
+    #            'ql1060n2': Printer('ql1060n2', 9105),
+    #        }
+    #
+    #        OldPools = {
+    #            'small1': Pool('small1', 9001, (Printers['ql710w1'], Printers['ql710w2']), (Printers['ql710w3'],)),
+    #            'small2': Pool('small2', 9002, (Printers['ql710w3'], Printers['ql710w2']), (Printers['ql710w1'],)),
+    #            'large1': Pool('large1', 9003, (Printers['ql1060n1'], ), (Printers['ql1060n2'],)),
+    #            'large2': Pool('large2', 9004, (Printers['ql1060n2'], ), (Printers['ql1060n1'],)),
+    #        }
+    #
+    #        StatusPorts = {
+    #            'snmp': StatusPort('snmp', 9000),
+    #        }
 
 
 
-    #SNMP = SNMPServer(Printers)
-    sleep(2)
-    MyServer = Server(Pools, StatusPorts, Printers)
+        #SNMP = SNMPServer(Printers)
+        sleep(2)
+        MyServer = Server(self.Pools, self.StatusPorts, self.Printers)
 
-    firsttime = True
-    lasttime = getTimeNow()
-
-
-    while True:
-
-        #print('\n******************************')
-        #print('\nMain: .... %3.1f' % (getTimeNow() - lasttime).total_seconds())
+        firsttime = True
+        lasttime = getTimeNow()
 
 
-        #if firsttime or (getTimeNow() - lasttime).total_seconds() > 2:
-        #       print('\nMain: updating status ....')
-        #       firsttime = False
-        #       for p,v in Printers.items():
-        #               v.updatestatus()
-        #       lasttime = getTimeNow()
+        # XXX: need to pass changeEvent to all modules so we can wait on it
+        # while changeEvent.wait():
+        while not self.stopEvent.is_set():
+
+            log('QLMuxd: printers: %s' % (self.Printers.keys(),))
+            for i, (p, v) in enumerate(self.Pools.items()):
+                log('QLMuxd[%d] %s' % (i, v))
+
+            if self.changeEvent.is_set():
+                log('QLMuxd: changeEvent is set')
+                self.changeEvent.clear()
+
+            QLPrinters = [('NC-11004h', 'QL-1060N', 'large'), 
+                          ('NC-16002w', 'QL-710W', 'small'), 
+                          ('NC-18002w', 'QL-720NW', 'small'), ]
+
+            def dotest(matchlist, test):
+                for x in matchlist:
+                    if x in test:
+                        return True
+                return False
+
+            while not self.snmpDiscoveredQueue.empty():
+                hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
 
 
-        #print('\nMain: Listening ....')
-        if not MyServer.select():
-            log("exiting")
-            break
+                if 'Brother' not in sysdescr:
+                    continue
+                for nc, m, s in QLPrinters:
+                    if nc not in sysdescr:
+                        continue
+                    self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
+                    break
 
-        #print('\nMain: Processing Received ....')
-        for p, v in Pools.items():
-            v.forward()
 
-        #print('\nMain: Forwarding Queued ....')
-        for p, v in Printers.items():
-            if v.checkforjobs():
-                MyServer.startSendJob(v)
+                #if p in Printers:
+                #    Printers[p].updatestatus()
+                #else:
+                #    log('QLMuxd: SNMP Discovered: Printer not in Printers: %s' % p)
 
-        #for p, v in StatusPorts.items():
-        #       if v.checkforjobs():
-        #               Server.startsend(v)
+
+            #print('\n******************************')
+            #print('\nMain: .... %3.1f' % (getTimeNow() - lasttime).total_seconds())
+
+
+            #if firsttime or (getTimeNow() - lasttime).total_seconds() > 2:
+            #       print('\nMain: updating status ....')
+            #       firsttime = False
+            #       for p,v in Printers.items():
+            #               v.updatestatus()
+            #       lasttime = getTimeNow()
+
+
+            #print('\nMain: Listening ....')
+            if not MyServer.select():
+                log("exiting")
+                break
+
+            #print('\nMain: Processing Received ....')
+            for p, v in self.Pools.items():
+                v.forward()
+
+            #print('\nMain: Forwarding Queued ....')
+            for p, v in self.Printers.items():
+                if v.checkforjobs():
+                    MyServer.startSendJob(v)
+
+            #for p, v in StatusPorts.items():
+            #       if v.checkforjobs():
+            #               Server.startsend(v)
 
 
 
@@ -216,6 +256,44 @@ def main():
 #
 #
 
+def qlmuxmain():
+    changeEvent = Event()
+    stopEvent = Event()
+    snmpDiscoveredQueue = Queue()
+
+    def signal_handler(signal, frame):
+        print('QLMuxd: signal_handler')
+        stopEvent.set() 
+        changeEvent.set()
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    threads = []
+    log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
+    threads.append(DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
+                                   changeEvent=changeEvent, stopEvent=stopEvent, 
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue))
+    threads.append(DiscoveryThread(name='broadcast_agent_discoveryv2c', api_version=api.protoVersion2c, 
+                                   changeEvent=changeEvent, stopEvent=stopEvent, 
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue))
+    [t.start() for t in threads]
+    
+    server = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue)
+    log('qlmuxmain: QLMuxd server created')
+    server.start()
+    log('qlmuxmain: waiting for stopEvent')
+    stopEvent.wait()
+
+    log('qlmuxmain: joining threads')
+    [t.join() for t in threads if t.is_alive()]
+
+    log('qlmuxmain: Waiting for server join')
+    server.join()
+
+    log('qlmuxmain: Done')
+
 
 if __name__ == '__main__':
-    main()
+    qlmuxmain()
+
+

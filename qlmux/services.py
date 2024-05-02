@@ -121,27 +121,27 @@ class Server( object):
 
         #print('*********************************************')
         for p, v in pools.items():
-            log('Server: listen on %s pool Port' % v.port)
+            log('Server: listen on %s pool Port' % v.listen)
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.setblocking(0)
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            #server.bind(('localhost', v.port))
-            server.bind(('', v.port))
+            #server.bind(('localhost', v.listen))
+            server.bind(('', v.listen))
             server.listen(5)
             self.poolListenSockets.append(server)
-            self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
+            self.socketMap.add(server, v.listen, SocketType.LISTEN, v.name, None, None)
 
         #print('*********************************************')
         for p, v in statusPorts.items():
-            log('Server: listen on %s status Port' % v.port)
+            log('Server: listen on %s status Port' % v.listen)
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.setblocking(0)
-            #server.bind(('localhost', v.port))
-            server.bind(('', v.port))
+            #server.bind(('localhost', v.listen))
+            server.bind(('', v.listen))
             server.listen(5)
             self.statusListenSockets.append(server)
-            self.socketMap.add(server, v.port, SocketType.LISTEN, v.name, None, None)
+            self.socketMap.add(server, v.listen, SocketType.LISTEN, v.name, None, None)
 
         #print('Server:__init__[] self.socketMap: %s' % (self.socketMap))
 
@@ -221,7 +221,7 @@ class Server( object):
     #
     def startSendJob(self, printer):
 
-        log('[%s] %s:%s SENDING' % (printer.name, printer.jobsfinished, printer.errors))
+        log('[%s] %s:%s SENDING' % (printer.name, printer.jobsFinished, printer.errors))
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.printerSendSockets.append(client)
         self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
