@@ -11,112 +11,159 @@ from werkzeug.serving import make_server
 from pysnmp.proto import api
 
 from .flaskserver import FlaskServer
+from .qlmuxd import QLMuxd
 from .discovery import DiscoveryThread
 from .snmpthreads import PrinterSNMPThread, ImpinjSNMPThread
 from .pythonproxy import ImpinjTCPProxy
+from .utils import log
+
+
+class RaceProxy(Thread):
+    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None, flaskServer=None, qlmuxd=None):
+        super().__init__()
+        self.stopEvent = stopEvent
+        self.changeEvent = changeEvent
+        self.snmpDiscoveredQueue = snmpDiscoveredQueue
+        self.flaskServer = flaskServer
+        self.qlmuxd = qlmuxd
+        self.printerStatusQueue = Queue()     # queue for printer status updates
+        self.impinjStatusQueue = Queue()      # queue for Impinj status updates
+        self.printers = {}
+        self.impinjs = {}
+
+
+    def run(self):
+        while self.changeEvent.wait():
+            self.changeEvent.clear()
+            if self.stopEvent.is_set():
+                # stop all threads except the Flask server
+                # stop the Flask flaskServer
+                #flaskServer.shutdown()
+                #print('flaskServer shutdown', file=sys.stderr)
+                break
+            while not self.snmpDiscoveredQueue.empty():
+                #hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
+                hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
+                #print('snmpDiscoveredQueue get: %s' % (snmpDiscoveredQueue.get(),), file=sys.stderr)
+                match sysdescr:
+                    case x if 'Impinj' in x:
+                        #print(f'Impinj: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
+                        if hostaddr not in self.impinjs:
+                            self.impinjs[hostaddr] = ImpinjSNMPThread(
+                                hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
+                                changeEvent=self.changeEvent, stopEvent=self.stopEvent,
+                                impinjStatusQueue=self.impinjStatusQueue)
+                            self.impinjs[hostaddr].start()
+                        else:
+                            self.impinjs[hostaddr].updateLastTime()
+
+                    case x if 'Brother' in x:
+                        #print(f'Brother: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
+                        #print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
+                        if hostaddr not in self.printers:
+                            self.printers[hostaddr] = PrinterSNMPThread(
+                                hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
+                                changeEvent=self.changeEvent, stopEvent=self.stopEvent,
+                                printerStatusQueue=self.printerStatusQueue)
+                            self.printers[hostaddr].start()
+                        else:
+                            self.printers[hostaddr].updateLastTime()
+                        pass
+            while not self.printerStatusQueue.empty():
+                printerStatus = self.printerStatusQueue.get()
+                self.flaskServer.printerUpdate(printerStatus)
+                if self.qlmuxd is not None:
+                    self.qlmuxd.printerUpdate(printerStatus)
+                #self.qlmuxd.printerUpdate(printerStatus)
+                #printer = printerStatusQueue.get()
+                #print(f'printerStatusQueue get: {printer}', file=sys.stderr)
+            while not self.impinjStatusQueue.empty():
+                #print(f'impinjStatusQueue get: {impinjStatusQueue.get()}', file=sys.stderr)
+                self.flaskServer.impinjUpdate(self.impinjStatusQueue.get())
+                #printer = printerStatusQueue.get()
+
+            # look for timed out printers
+            self.printers = {k: v for k, v in self.printers.items() if v.is_alive()}
+
+            # look for threads that have finished
+            for k, v in self.printers.items():
+                if not v.is_alive():
+                    v.join()
+                    del self.printers[k]
+
+        # wait for all threads to finish
+        for k, v in self.printers.items():
+            if v.is_alive():
+                v.join()
+        print('exiting', file=sys.stderr) 
 
 def raceproxy_main():
 
-    sigintEvent = Event()
     changeEvent = Event()
     stopEvent = Event()
-    sigintEvent.clear()
+    sigintEvent = Event()
     changeEvent.clear()
     stopEvent.clear()
+    sigintEvent.clear()
 
     # create the queues
     snmpDiscoveredQueue = Queue()        # queue for SNMP discovery
-    printerStatusQueue = Queue()     # queue for printer status updates
-    impinjStatusQueue = Queue()      # queue for Impinj status updates
 
-    impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
-    impinjTCPProxy.start()
-
-    printers = {}
-    impinjs = {}
 
 
     def sigintHandler(signal, frame):
         print('SIGINT received %s' % (signal,), file=sys.stderr)
-        sigintEvent.set()
+        stopEvent.set()
         changeEvent.set()
 
     signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
 
-    print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
+    #print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
+
+    impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
     flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, )
-    flaskServer.start()
+    qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
 
-    threads = []
+    threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
     print('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), file=sys.stderr)
-    threads.append(DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
+
+    threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
-                                   snmpDiscoveredQueue=snmpDiscoveredQueue))
-    threads.append(DiscoveryThread(name='broadcast_agent_discoveryv2c', api_version=api.protoVersion2c, 
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue)
+
+    threads['discoverv2'] = DiscoveryThread(name='broadcast_agent_discoveryv2c', api_version=api.protoVersion2c, 
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
-                                   snmpDiscoveredQueue=snmpDiscoveredQueue))
-    [t.start() for t in threads]
-    while changeEvent.wait():
-        changeEvent.clear()
-        if sigintEvent.is_set():
-            # stop all threads except the Flask server
-            stopEvent.set()
-            # stop the Flask flaskServer
-            flaskServer.shutdown()
-            print('flaskServer shutdown', file=sys.stderr)
-            break
-        while not snmpDiscoveredQueue.empty():
-            #hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
-            hostaddr, hostname, sysdescr, macAddress, serialNumber = snmpDiscoveredQueue.get()
-            #print('snmpDiscoveredQueue get: %s' % (snmpDiscoveredQueue.get(),), file=sys.stderr)
-            match sysdescr:
-                case x if 'Impinj' in x:
-                    #print(f'Impinj: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
-                    if hostaddr not in impinjs:
-                        impinjs[hostaddr] = ImpinjSNMPThread(
-                            hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
-                            changeEvent=changeEvent, stopEvent=stopEvent,
-                            impinjStatusQueue=impinjStatusQueue)
-                        impinjs[hostaddr].start()
-                    else:
-                        impinjs[hostaddr].updateLastTime()
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue)
 
-                case x if 'Brother' in x:
-                    #print(f'Brother: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
-                    #print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
-                    if hostaddr not in printers:
-                        printers[hostaddr] = PrinterSNMPThread(
-                            hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
-                            changeEvent=changeEvent, stopEvent=stopEvent,
-                            printerStatusQueue=printerStatusQueue)
-                        printers[hostaddr].start()
-                    else:
-                        printers[hostaddr].updateLastTime()
-                    pass
-        while not printerStatusQueue.empty():
-            flaskServer.printerUpdate(printerStatusQueue.get())
-            #printer = printerStatusQueue.get()
-            #print(f'printerStatusQueue get: {printer}', file=sys.stderr)
-        while not impinjStatusQueue.empty():
-            #print(f'impinjStatusQueue get: {impinjStatusQueue.get()}', file=sys.stderr)
-            flaskServer.impinjUpdate(impinjStatusQueue.get())
-            #printer = printerStatusQueue.get()
+    threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue, 
+                             flaskServer=flaskServer, qlmuxd=qlmuxd)
 
-        # look for timed out printers
-        printers = {k: v for k, v in printers.items() if v.is_alive()}
+    [v.start() for k, v in threads.items()]
 
-        # look for threads that have finished
-        for k, v in printers.items():
-            if not v.is_alive():
-                v.join()
-                del printers[k]
+    stopEvent.wait()
 
-    # wait for all threads to finish
-    for k, v in printers.items():
+    log('main: stopping flaskServer')
+    flaskServer.shutdown()
+    log('main: joining threads')
+    #[t.join(4) for t in threads if t.is_alive()]
+    for k, v in threads.items():
+        log(f'main: {k} is_alive: {v.is_alive()}')
         if v.is_alive():
+            log(f'main: joining {k}')
             v.join()
-    [t.join() for t in threads if t.is_alive()]
-    print('exiting', file=sys.stderr) 
+            log(f'main: joined {k}')
+    log('main: stopping threads')
+
+    #first = True
+    #count = 0
+    #while True:
+    #    finished = True
+    #    for v in threads:
+    #        if v is not None:
+    #            finished &= join(v, count)
+    #    if finished:
+    #        break
+    #    count += 1
 
 
 if __name__ == '__main__':

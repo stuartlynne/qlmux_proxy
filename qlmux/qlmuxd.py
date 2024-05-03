@@ -44,19 +44,16 @@ class QLMuxd(Thread):
 
     QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
 
-    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None, snmpStatusQueue=None):
+    def __init__(self, stopEvent=None, changeEvent=None, ):
         super(QLMuxd, self).__init__()
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
-        self.snmpDiscoveredQueue = snmpDiscoveredQueue
-        self.snmpStatusQueue = snmpStatusQueue
 
         self.Printers = dict()
         self.Pools = dict()
         self.StatusPorts = dict()
 
-        cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
-
+        #cfgs = ['/usr/local/etc/qlmuxd.cfg', 'qlmuxd.cfg']
         #self.config = None
         #for c in cfgs:
         #    try:
@@ -72,6 +69,25 @@ class QLMuxd(Thread):
 
 
         # XXX Need to check if name or model has changed
+
+    def printerUpdate(self, printerInfo):
+        log('QLMuxd: printerStatus: %s' % printerInfo)
+        return
+        hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
+        if 'Brother' not in sysdescr:
+            return
+        for nc, m, s in QLPrinters:
+            if nc not in sysdescr:
+                continue
+            #self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
+            #def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
+                # XXX need to use serial number to identify printers
+            if hostaddr not in self.Printers:
+                self.Printers[hostaddr] = Printer(hostname, hostaddr, sysdescr, macAddress, serialNumber, port, m, s)
+                for pool in self.QLMux_Pools:
+                    if s in pool['name']:
+                        self.Pools[pool['name']].addPrinter(self.Printers[hostaddr])
+                        break
 
     def run(self):
         # finished
@@ -133,22 +149,22 @@ class QLMuxd(Thread):
                           ('NC-16002w', 'QL-710W', 'small'), 
                           ('NC-18002w', 'QL-720NW', 'small'), ]
 
-            while not self.snmpDiscoveredQueue.empty():
-                hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
-                if 'Brother' not in sysdescr:
-                    continue
-                for nc, m, s in QLPrinters:
-                    if nc not in sysdescr:
-                        continue
-                    #self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
-                    #def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
-                        # XXX need to use serial number to identify printers
-                    if hostaddr not in self.Printers:
-                        self.Printers[hostaddr] = Printer(hostname, hostaddr, sysdescr, macAddress, serialNumber, port, m, s)
-                        for pool in self.QLMux_Pools:
-                            if s in pool['name']:
-                                self.Pools[pool['name']].addPrinter(self.Printers[hostaddr])
-                                break
+            #while not self.snmpDiscoveredQueue.empty():
+            #    hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
+            #    if 'Brother' not in sysdescr:
+            #        continue
+            #    for nc, m, s in QLPrinters:
+            #        if nc not in sysdescr:
+            #            continue
+            #        #self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
+            #        #def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
+            #            # XXX need to use serial number to identify printers
+            #        if hostaddr not in self.Printers:
+            #            self.Printers[hostaddr] = Printer(hostname, hostaddr, sysdescr, macAddress, serialNumber, port, m#, s)
+            #            for pool in self.QLMux_Pools:
+            #                if s in pool['name']:
+            #                    self.Pools[pool['name']].addPrinter(self.Printers[hostaddr])
+            #                    break
 
 
                 #if p in Printers:
@@ -189,30 +205,6 @@ class QLMuxd(Thread):
 
 
 
-#Pools = {
-#    9001: ('ql710w1', 'ql710w2', 'ql710w3')
-#    9002: ('ql710w3', 'ql710w2', 'ql710w1')
-#    9003: ('ql1060n1', 'ql1060n2')
-#    9004: ('ql1060n2', 'ql1060n1')
-#}
-
-#DataQueues = {
-#    9001: None
-#    9002: None
-#    9003: None
-#    9004: None
-#}
-
-#Status = {
-#    'ql710w1' : None
-#    'ql710w2' : None
-#    'ql710w3' : None
-#    'ql1060n1' : None
-#    'ql1060n2' : None
-#}
-
-
-#
 # QLMux listens on the ports to accept binary data that it will forward to the printers
 # in the associated pool for each port.
 #
@@ -268,7 +260,7 @@ def qlmuxmain():
                                    snmpDiscoveredQueue=snmpDiscoveredQueue))
     [t.start() for t in threads]
     
-    server = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue, snmpStatusQueue=snmpStatusQueue)
+    server = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
     log('qlmuxmain: QLMuxd server created')
     server.start()
     log('qlmuxmain: waiting for stopEvent')

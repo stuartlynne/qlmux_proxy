@@ -8,6 +8,7 @@ from datetime import timedelta
 import datetime
 import signal
 from threading import Thread, Event, Semaphore
+from queue import Queue
 from werkzeug.serving import make_server
 
 from .htmlpage import TestPage
