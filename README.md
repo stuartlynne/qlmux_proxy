@@ -1,47 +1,64 @@
-# QLMux
-## Copyright (c) 2018, stuart.lynne@gmail.com
-## Sat Sep 01 18:31:24 PDT 2018 
+# QLMux Proxy
+## Copyright (c) 2018-2024, stuart.lynne@gmail.com
+## Thu May  2 05:01:13 PM PDT 2024
 
-*QLMux* is designed to support label printing to Brother QL printers that are set up in pools to allow for increased throughput 
-and redundancy.
+## Overview
+This is the new version of *QLMux Proxy* that is designed to support label printing to 
+Brother QL printers that are set up in pools to allow for increased throughput and redundancy
+and act as a proxy for RaceDB to use a dynamically found RFID reader.
 
-This was implemented to support label printing from RaceDB. 
+The goal is to:
+- simplify the setup and use of the QL printers and RFID readers for events for RaceDB use.
+- allow for easy swapping of printers and RFID readers without changing the RaceDB configuration.
 
-QLMuxd loads a configuration file:
 
-        1. ./qlmuxd.cfg
-        2. /usr/local/etc/qlmuxd.cfg
+QLMux Proxy changes:
 
-The list of available printers with the associated printer model is specified in the configuration file.
+no static configuration file
+use of SNMP Broadcast Discovery to find Brother label printers and Impinj RFID readers
+support for proxying traffic from to a found RFID router
+a web status page to monitor printer and RFID readers and effect some configuration for printer queues
 
-        ql710w1, 'Brother QL-710W'
-        ql710w2, 'Brother QL-710W'
-        ql710w3, 'Brother QL-710W'
-        ql1060n1, 'Brother QL-1060N'
-        ql1060n2, 'Brother QL-1060N'
 
-Printer pools are set up listing available printers, both a primary set and backup set, with an associated TCP port that will 
-be used to accept label jobs: The expected media size is specified so that the SNMP monitoring can detect incorrectly installed
-labels.
+*QLMux Proxy* was designed to support label printing to Brother QL printers that are set up in pools to allow for increased throughput 
+and redundancy. The new version finds the printers dynamically using SNMP broadcast discovery. By default the printers are 
+placed into a single pool, which is suitable for small events. For larger events, the printers can be placed into two different
+pools to allow for increased throughput and redundancy using the builtin Web Status page.
 
-      small1: 9001, '62mm x 100mm', (ql710w1, ql710w2), (ql710w3)
-      small2: 9002, '62mm x 100mm', (ql710w3, ql710w2), (ql710w1)
-      large1: 9003, '102mm x 152mm', (ql1060n1), (ql1060n2)
-      large2: 9004, '102mm x 152mm', (ql1060n2), (ql1060n1)
-      status: 9000
+*QLMux Proxy* also implements a transparent proxy for RaceDB to use a dynamically found RFID reader. This allows *RaceDB*
+to use a single *IP address* and *port* to connect to the RFID reader. The *QLMux Proxy* will then forward the connection to the
+correct RFID reader that is dynamically found. By default if only one RFID reader is found, it will be used. If more than one
+RFD reader is found, the first one found will be used, but this may be changed using the builtin Web Status page.
 
-In the above there are two pools of small label printers that utilize three printers. One printer is shared to both pools, with the non-shared printers used as backups. 
+## Swapping Printers
 
-There are two pools of large label printers, each with a single printer as primary and the other pools printer as backup.
+The *QLMux Proxy* will automatically find the printers on the network and add them to the printer pool. If a printer is
+swapped out, the *QLMux Proxy* will automatically find the new printer and add it to the pool. The problem printer can
+be left in place, just open the cover to stop it from being used.
 
-Incoming jobs are accepted on the specified port and forwarded to port 9100 on one of the associated printers.
+For larger events, it may be necessary to have two pools of printers, and in this case the Web Status page will be used 
+to put the new printer in the correct pool.
 
-The incoming label print jobs are multiplexed across any working printers in the primary list. 
-If non of the printers in the primary list are working the backup printer is used. Backup printers
-are only used when all primary printers are in an error mode.
+## Swapping RFID Readers
+
+The *QLMux Proxy* will automatically find the RFID readers on the network and add them to the list of available RFID readers.
+
+Best practice is to have only one RFID reader on the network at a time. If more than one RFID reader is found, the first one
+will be used. If the RFID reader is swapped out, the *QLMux Proxy* will automatically find the new RFID reader and start using it.
+
+Having the backup RFID reader powered on and not connected will make switching faster.
+
+
+## QLLABELS.py
+
+This is a script that can be used from *RaceDB* to printer labels using the QLMux Proxy. It is a simple script that
+converts the PDF file created by RaceDB to an image and then to the Brother Raster format, then
+using the arguements passed to it, sends the label to the QLMux Proxy 
+for printing on the correct size printer.
 
 The binary data (typically under 100 kbytes) is kept in memory until it can be delivered. The intended
-design is for about a half dozen printers with a load of about one label per second per printer maximum.
+design is for about a half dozen printers with a load of about one label per second per printer maximum
+(that is the typical maximum print speed of the Brother Label Printers.)
 
 A status is kept for each printer so that fall over can be used to do the following:
 
@@ -86,81 +103,23 @@ This can be used in a script to return error information to a user.
 
 There is also a qlstatus script to get the status data.
 
-
-## Configuration
-
-qlmuxd will look for a qlmuxd.cfg file in the current directory, and then in
-/usr/local/etc/qlmuxd.cfg.
-
-Sample.
+## Device Configuration
 
 
-        // QLMuxd configuration
-        // This is for a five printer configuration.
-        // There are four printer pools.
-        //
-        {
+### Brother QL Printers
+Network:
+- must be on the same network as the QLMux Proxy.
+- should use DHCP to get an IP address.
 
-                // These are the pool listen ports
-                //
-                QLMux_Ports: [9001, 9002, 9003, 9004],
+Printer:
+- Must have a unique hostname
+- Must have raster printing enabled
+- for WiFi printers must have the WiFi SSID and password set 
 
-                // These are the printer destinations
-                //
-                QLMux_Printers: [
-                     {name:"ql710w1",  model:"Brother QL-710W", port:9101},
-                     {name:"ql710w2",  model:"Brother QL-710W", port:9102},
-                     {name:"ql710w3",  model:"Brother QL-710W", port:9103},
-                     {name:"ql1060n1", model:"Brother QL-1060N",port:9104},
-                     {name:"ql1060n2", model:"Brother QL-1060N",port:9105},
-                ],
-
-                // These are the printer pools.
-                // Pools map jobs directed at the listen port to the primary printers 
-                // or if necessary the backup printers.
-                QLMux_Pools: [
-                    {name:"small1", listen:9001, media:"62mm x 100mm",  primaries:["ql710w1", "ql710w2"], backups:["ql710w3", ], },
-                    {name:"small2", listen:9002, media:"62mm x 100mm",  primaries:["ql710w3", "ql710w2"], backups:["ql710w1", ], },
-                    {name:"large1", listen:9003, media:"102mm x 152mm", primaries:["ql1060n1",         ], backups:["ql1060n2",], },
-                    {name:"large2", listen:9004, media:"102mm x 152mm", primaries:["ql1060n2",         ], backups:["ql1060n1",], },
-                ],
-
-                // This is the status port
-                //
-                QLMux_StatusPorts: [
-                    {name: "snmp", port: 9000 },
-                ],
-        }
-
-
-## /etc/hosts
-The simplest way to configure the QL Label printers is to assign static IP
-addresses via /etc/hosts:
-
-```
-192.168.40.35   ql710w1
-192.168.40.36   ql710w2
-192.168.40.37   ql1060n1
-192.168.40.38   ql710w3
-192.168.40.39   ql1060n2
-```
-
-## Required packages
-
-#### Linux packages
-  - libpython-dev
-  - libsnmp-dev
-
-### Python packages
-  - enum34
-  - easysnmp
-  - json-cfg  
-
-## Other Programs
-
-  - qlprint (modified version for printing to stdout)
-  - brother_ql
-  - init.d script
-  - libpng16.so.16:
+### Impinj RFID Readers
+Network:
+- must be on the same network as the QLMux Proxy.
+- should use DHCP to get an IP address.
+- should have a unique hostname
 
 
