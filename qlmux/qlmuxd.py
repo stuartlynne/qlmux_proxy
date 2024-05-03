@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Thread, Event
 import signal
 from pysnmp.proto import api
-
+from enum import Enum
 
 from .utils import log
 
@@ -24,8 +24,9 @@ from .services import Server
 from .printer import PrinterStatus, Printer
 from .pool import Pool
 from .status import StatusPort
-from .snmp import SNMPStatus, SNMPServer
+#from .snmp import SNMPStatus, SNMPServer
 from .discovery import DiscoveryThread
+from .printer import PrinterQueue
 
 getTimeNow = datetime.datetime.now
 
@@ -36,10 +37,14 @@ getTimeNow = datetime.datetime.now
 class QLMuxd(Thread):
 
     QLMux_Pools = [
-        {'name':"small_left", 'listen':9101, 'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",             ],}, 
-        {'name':"small_right", 'listen':9102, 'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",            ],}, 
-        {'name':"large_left", 'listen':9103, 'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"", ],}, 
-        {'name':"large_right", 'listen':9104, 'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"",],}, 
+        {'name':"small_left",  'queue': PrinterQueue.LEFT,  'listen':9101, 'size': "62mm",  
+         'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",             ],}, 
+        {'name':"small_right", 'queue': PrinterQueue.LEFT,  'listen':9102, 'size': "62mm",  
+         'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",            ],}, 
+        {'name':"large_left",  'queue': PrinterQueue.RIGHT, 'listen':9103, 'size': "102mm", 
+         'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"", ],}, 
+        {'name':"large_right", 'queue': PrinterQueue.RIGHT, 'listen':9104, 'size': "102mm", 
+         'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"",],}, 
         ]
 
     QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
@@ -71,23 +76,15 @@ class QLMuxd(Thread):
         # XXX Need to check if name or model has changed
 
     def printerUpdate(self, printerInfo):
-        log('QLMuxd: printerStatus: %s' % printerInfo)
-        return
-        hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
-        if 'Brother' not in sysdescr:
-            return
-        for nc, m, s in QLPrinters:
-            if nc not in sysdescr:
-                continue
-            #self.checkPrinter(hostname, hostaddr, sysdescr, macAddress, serialNumber, 9100, m, s)
-            #def checkPrinter(self, name, hostname, sysdescr, macAddress, serialNumber, port, model, size):
-                # XXX need to use serial number to identify printers
-            if hostaddr not in self.Printers:
-                self.Printers[hostaddr] = Printer(hostname, hostaddr, sysdescr, macAddress, serialNumber, port, m, s)
-                for pool in self.QLMux_Pools:
-                    if s in pool['name']:
-                        self.Pools[pool['name']].addPrinter(self.Printers[hostaddr])
-                        break
+        for serialNumber, info in printerInfo.items():
+            #log('QLMuxd.printerUpdate[%s]: %s' % (serialNumber, info))
+            #log('QLMuxd.printerUpdate[%s:%s]: %s' % (serialNumber, info.get('hostaddr','n/a'), info.get('Status','n/a')))
+            if serialNumber not in self.Printers:
+                log('QLMuxd.printerUpdate[%s]: not in Printers' % serialNumber)
+                self.Printers[serialNumber] = Printer(**info)
+            else:
+                #log('QLMuxd.printerUpdate[%s]: updating' % serialNumber)
+                self.Printers[serialNumber].update(**info)
 
     def run(self):
         # finished
@@ -95,9 +92,9 @@ class QLMuxd(Thread):
 
         log('Config: Printers')
 
-        SNMP = SNMPServer(self.Printers)
+        #SNMP = SNMPServer(self.Printers)
         for pool in self.QLMux_Pools:
-            self.Pools[pool['name']] = Pool( name=pool['name'], listen=pool['listen'], media=pool['media'],)
+            self.Pools[pool['name']] = Pool(printers=self.Printers, **pool)
 
         for port in self.QLMux_StatusPorts:
             self.StatusPorts[port['name']] = StatusPort(port['name'], port['listen'])
@@ -126,7 +123,7 @@ class QLMuxd(Thread):
 
 
         #SNMP = SNMPServer(Printers)
-        sleep(2)
+        #sleep(2)
         MyServer = Server(self.Pools, self.StatusPorts, self.Printers)
 
         firsttime = True
@@ -138,8 +135,10 @@ class QLMuxd(Thread):
         while not self.stopEvent.is_set():
 
             log('QLMuxd: printers: %s' % (self.Printers.keys(),))
+            for i, (p, v) in enumerate(self.Printers.items()):
+                log('QLMuxd[%d:%s] %s' % (i, p, v))
             for i, (p, v) in enumerate(self.Pools.items()):
-                log('QLMuxd[%d] %s' % (i, v))
+                log('QLMuxd[%d] pool: %s' % (i, v))
 
             if self.changeEvent.is_set():
                 log('QLMuxd: changeEvent is set')

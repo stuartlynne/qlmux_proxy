@@ -9,6 +9,7 @@ import traceback
 import signal
 
 from .keepalive import set_keepalive
+from .utils import log
 
 class Forward:
     def __init__(self):
@@ -21,7 +22,7 @@ class Forward:
             self.forward.connect((host, port))
             return self.forward
         except Exception as e:
-            print(e, file=sys.stderr)
+            log(e, )
             return None
 
 class TCPProxy(Thread):
@@ -43,13 +44,13 @@ class TCPProxy(Thread):
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.tcpStatusQueue = tcpStatusQueue
-        print('TCPProxy.__init__[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), file=sys.stderr)
+        log('TCPProxy.__init__[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), )
 
         self.dataReceived = 0
         self.messagesReceived = 0
 
     def update(self, tcpStatus):
-        print('TCPProxy.update[%s] %s' % (self.target, tcpStatus,), file=sys.stderr)
+        log('TCPProxy.update[%s] %s' % (self.target, tcpStatus,), )
         if self.tcpStatusQueue:
             self.tcpStatusQueue.put({self.target: tcpStatus})
 
@@ -58,12 +59,12 @@ class TCPProxy(Thread):
     #      - set the new target    
     #      - set changeEvent to signal the change
     def change(self, target, targetport=None):
-        print('TCPProxy.change[%s] target: %s targetport: %s)' % (self.host, target, targetport), file=sys.stderr)
+        log('TCPProxy.change[%s] target: %s targetport: %s)' % (self.host, target, targetport), )
         self.update({'status': 'closing'})
         self.target = target
         if targetport:
             self.targetport = targetport
-        print('TCPProxy.change[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), file=sys.stderr)
+        log('TCPProxy.change[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), )
         self.dataReceived = 0
         self.messagesReceived = 0
         #for k, v in self.channel.items():
@@ -80,7 +81,7 @@ class TCPProxy(Thread):
 
             # if changeEvent is set, close all proxied connections 
             if self.stopEvent.is_set():
-                print('TCPProxy.run: changeEvent is set', file=sys.stderr)
+                log('TCPProxy.run: changeEvent is set', )
                 for k, v in self.channels.items():
                     v.close()
                 self.channels = {}
@@ -90,22 +91,22 @@ class TCPProxy(Thread):
             # normal operation, process received data 
             for s in inputready:
 
-                print('TCPProxy.run: AAAA', file=sys.stderr)
+                log('TCPProxy.run: AAAA', )
 
                 # New connection
                 if s == self.server:
-                    print('TCPProxy.run: BBBB', file=sys.stderr)
+                    log('TCPProxy.run: BBBB', )
                     self.on_accept()
-                    print('TCPProxy.run: CCCC', file=sys.stderr)
+                    log('TCPProxy.run: CCCC', )
                     self.update({'status': 'connected'})
                     break
-                print('TCPProxy.run: DDDD', file=sys.stderr)
+                log('TCPProxy.run: DDDD', )
 
                 # Incoming data to be forwarded
                 try:
                     data = s.recv(4096)
                 except ConnectionResetError as e:
-                    print('TCPProxy.run: %s ConnectionResetError %s' % (s.getpeername(), e), file=sys.stderr)
+                    log('TCPProxy.run: %s ConnectionResetError %s' % (s.getpeername(), e), )
                     data = b''
 
                 # No data means the connection is closed
@@ -116,45 +117,45 @@ class TCPProxy(Thread):
                     self.channels[s].send(data)
                     continue
 
-                print('TCPProxy.run[%s]: %s has disconnected' % (self.host, s.getpeername(),), file=sys.stderr)
+                log('TCPProxy.run[%s]: %s has disconnected' % (self.host, s.getpeername(),), )
                 for c in [s, self.channels[s]]:
                     self.input_list.remove(c)
                     self.update({'status': 'disconnected'})
                     c.close()
                     del self.channels[c]
 
-        print('TCPProxy.run: stopEvent is set', file=sys.stderr)
+        log('TCPProxy.run: stopEvent is set', )
 
 
     def on_accept(self):
-        print('TCPProxy.on_accept[%s] 1111' % (self.host,), file=sys.stderr)
+        log('TCPProxy.on_accept[%s] 1111' % (self.host,), )
         clientsock, clientaddr = self.server.accept()
-        print('TCPProxy.on_accept[%s] 2222' % (self.host,), file=sys.stderr)
-        print('TCPProxy.on_accept[%s] has connected %s target: %s targetport: %s' % (self.host, (clientaddr), self.target, self.targetport,), file=sys.stderr)
-        print('TCPProxy.on_accept[%s] 3333' % (self.host,), file=sys.stderr)
+        log('TCPProxy.on_accept[%s] 2222' % (self.host,), )
+        log('TCPProxy.on_accept[%s] has connected %s target: %s targetport: %s' % (self.host, (clientaddr), self.target, self.targetport,), )
+        log('TCPProxy.on_accept[%s] 3333' % (self.host,), )
         if not self.target:
-            print('TCPProxy.on_accept[%s] has connected, but no target' % (clientaddr,), file=sys.stderr)
+            log('TCPProxy.on_accept[%s] has connected, but no target' % (clientaddr,), )
             clientsock.close()
             return
         set_keepalive(clientsock, after_idle_sec=4, interval_sec=1, max_fails=3)
         clientsock.settimeout(5)
-        print('TCPProxy.on_accept[%s] 4444' % (self.host,), file=sys.stderr)
+        log('TCPProxy.on_accept[%s] 4444' % (self.host,), )
         forward = Forward()
-        print('TCPProxy.on_accept[%s] 5555' % (self.host,), file=sys.stderr)
+        log('TCPProxy.on_accept[%s] 5555' % (self.host,), )
         # XXX this needs to be done asynchronously
         s = Forward().start(self.target, self.targetport)
-        print('TCPProxy.on_accept[%s] 6666' % (self.host,), file=sys.stderr)
+        log('TCPProxy.on_accept[%s] 6666' % (self.host,), )
 
         if s:
-            print('TCPProxy.on_accept: %s proxied to %s' % (clientaddr, (self.target, self.targetport)), file=sys.stderr)
-            print(clientaddr, "has connected", file=sys.stderr)
+            log('TCPProxy.on_accept: %s proxied to %s' % (clientaddr, (self.target, self.targetport)), )
+            log(clientaddr, "has connected", )
             self.input_list.append(clientsock)
             self.input_list.append(s)
             self.channels[clientsock] = s
             self.channels[s] = clientsock
         else:
-            print("Can't establish connection with remote server.", file=sys.stderr)
-            print("Closing connection with client side", clientaddr, file=sys.stderr)
+            log("Can't establish connection with remote server.", )
+            log("Closing connection with client side", clientaddr, )
             clientsock.close()
 
 class ImpinjTCPProxy(TCPProxy):
@@ -182,22 +183,22 @@ if __name__ == '__main__':
     def sigintHandler(signal, frame):
         if len(targets) > 0:
             target = targets.pop()
-            print('SIGINT received %s target: %s' % (signal, target), file=sys.stderr)
+            log('SIGINT received %s target: %s' % (signal, target), )
             server.change(target, 5084)
         else:
-            print('SIGINT received %s, setting stopEvent' % (signal,), file=sys.stderr)
+            log('SIGINT received %s, setting stopEvent' % (signal,), )
             stopEvent.set()
             changeEvent.set()
   
     signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
 
-    print('starting server', file=sys.stderr)
+    log('starting server', )
     server.start()
-    print('server started, waiting', file=sys.stderr)
+    log('server started, waiting', )
     stopEvent.wait()
-    print('server stopping, joining', file=sys.stderr)
+    log('server stopping, joining', )
     server.join()
-    print('server stopped', file=sys.stderr)
+    log('server stopped', )
 
 
 

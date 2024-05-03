@@ -3,6 +3,7 @@ import sys
 from time import sleep, time
 import traceback
 from yattag import Doc, indent
+from .utils import log
 
 
 class HtmlPage:
@@ -209,7 +210,7 @@ class TableRowListener(Script):
     _addRow = ''
     def __init__(self, tableName=None, scriptName=None, addRow=None, src=None, text=None, tableDescription=None):
         super(TableRowListener, self).__init__(src=None, text=None, )
-        print('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), file=sys.stderr)
+        #log('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), )
         self.tableName = tableName
         self.scriptName = scriptName
         self.tableDescription = tableDescription if tableDescription else 'Devices'
@@ -222,7 +223,7 @@ class TableRowListener(Script):
             }});
             {self._addRow}
             """
-        print('TableRowListener: %s' %(self.text), file=sys.stderr)
+        #log('TableRowListener: %s' %(self.text), )
 
 class PrintersTableListener(TableRowListener):
     _addRow = """
@@ -365,5 +366,5 @@ if __name__ == '__main__':
         bootstrapJS, 
     ], scripts=[misc], elements=[printers, impinjs])
 
-    print(page, file=sys.stderr)
+    log(page, )
 

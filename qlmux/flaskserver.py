@@ -1,4 +1,3 @@
-from flask import Flask, render_template, render_template_string, Response, request
 import json
 import sys
 import asyncio
@@ -10,8 +9,12 @@ import signal
 from threading import Thread, Event, Semaphore
 from queue import Queue
 from werkzeug.serving import make_server
+from flask import Flask, render_template, render_template_string, Response, request
+import logging
+from flask.logging import default_handler
 
 from .htmlpage import TestPage
+from .utils import log
 
 
 
@@ -21,7 +24,7 @@ class FlaskServer(Thread):
     def root(self): 
         #testpage = TestPage.testpage
         testpage = TestPage()
-        print('%s' % testpage, file=sys.stderr)
+        #log('%s' % testpage, )
         return str(testpage)
 
     # SSE endpoint to stream printer updates
@@ -36,7 +39,7 @@ class FlaskServer(Thread):
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
             }, ))
 
-        #print('impinj_updates:', data, file=sys.stderr)
+        #log('impinj_updates:', data, )
         return Response(data, content_type='text/event-stream')
 
 
@@ -52,7 +55,7 @@ class FlaskServer(Thread):
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
             }, ))
 
-        #print('printer_updates:', data, file=sys.stderr)
+        #log('printer_updates:', data, )
         return Response(data, content_type='text/event-stream')
 
     # Route to handle impinj clicks
@@ -60,14 +63,14 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            print('impinjClicked: no request', file=sys.stderr)
-            print('impinjClicked: request: %s' % (request), file=sys.stderr) 
+            log('impinjClicked: no request', )
+            log('impinjClicked: request: %s' % (request), ) 
             return 'OK'
 
-        #print('impinjClicked clicked: request: %s' % (request), file=sys.stderr) 
+        #log('impinjClicked clicked: request: %s' % (request), ) 
         impinj_name = data.get('impinj_name')
-        print('impinjClicked[%s] AAAAA' % (impinj_name), file=sys.stderr)
-        #print('data:', data, file=sys.stderr)
+        #log('impinjClicked[%s] AAAAA' % (impinj_name), )
+        #log('data:', data, )
         # Handle the click event here
         # For example, you could trigger some action or return a response to the client
         return 'OK'
@@ -76,14 +79,14 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            print('Printer clicked: no request', file=sys.stderr)
-            print('Printer clicked: request: %s' % (request), file=sys.stderr) 
+            log('Printer clicked: no request', )
+            log('Printer clicked: request: %s' % (request), ) 
             return 'OK'
 
-        #print('Printer clicked: request: %s' % (request), file=sys.stderr) 
+        #log('Printer clicked: request: %s' % (request), ) 
         printer_name = data.get('printer_name')
-        print('printerClicked[%s]' % (printer_name), file=sys.stderr)
-        print('data:', data, file=sys.stderr)
+        #log('printerClicked[%s]' % (printer_name), )
+        #log('data:', data, )
         # Handle the click event here
         # For example, you could trigger some action or return a response to the client
         return 'OK'
@@ -93,36 +96,36 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            print('FlaskServer.updatePrinterStatus: Printer clicked: no request', file=sys.stderr) 
-            print('FlaskServer.updatePrinterStatus: Update printer status: request: %s' % (request), file=sys.stderr)
+            log('FlaskServer.updatePrinterStatus: Printer clicked: no request', ) 
+            log('FlaskServer.updatePrinterStatus: Update printer status: request: %s' % (request), )
             return 'OK'
         queue = data['queue']
         id = data['id']
         enabled = data['enabled']
-        print('FlaskServer.updatePrinterStatus[%s] enabled: %s' % (id, enabled), file=sys.stderr)
+        log('FlaskServer.updatePrinterStatus[%s] enabled: %s AAAA' % (id, enabled), )
         for k in ['left', 'center', 'right']:
             self.printers[id][k] = False
         self.printers[id][queue] = enabled
         self.setPrinterResults()
-        #print('FlaskServer.updatePrinterStatus: %s, queue: %s enabled: %s' % (id, queue, enabled), file=sys.stderr)
+        #log('FlaskServer.updatePrinterStatus: %s, queue: %s enabled: %s' % (id, queue, enabled), )
         return 'OK'
 
     def updateImpinjStatus(self):
         try:
             data = request.get_json()
         except NameError:
-            print('FlaskSEver.updateImpinjStatus: Impinj clicked: no request', file=sys.stderr) 
-            print('FlaskSEver.updateImpinjStatus: Update Impinj status: request: %s' % (request), file=sys.stderr)
+            log('FlaskSEver.updateImpinjStatus: Impinj clicked: no request', ) 
+            log('FlaskSEver.updateImpinjStatus: Update Impinj status: request: %s' % (request), )
             return 'OK'
         id = data['id']
         enabled = data['enabled']
-        print('updateImpinjStatus[%s]: enabled: %s AAAAA' % (id, enabled), file=sys.stderr)
+        log('updateImpinjStatus[%s]: enabled: %s AAAAA' % (id, enabled), )
         for k, v in self.impinjs.items():
             self.impinjs[k]['enabled'] = False
         self.impinjs[id]['enabled'] = enabled
         self.setImpinjResults()
-        print('FlaskServer.updateImpinjStatus[%s] enabled: %s' % (id, enabled), file=sys.stderr)
-        print('FlaskServer.updateImpinjStatus[%s] %s' % (id, self.impinjs[id]), file=sys.stderr)
+        #log('FlaskServer.updateImpinjStatus[%s] enabled: %s' % (id, enabled), )
+        #log('FlaskServer.updateImpinjStatus[%s] %s' % (id, self.impinjs[id]), )
         if self.impinjTCPProxy:
             self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'], )
         return 'OK'
@@ -131,6 +134,14 @@ class FlaskServer(Thread):
         self.impinjTCPProxy = impinjTCPProxy
         self.semaphore = Semaphore()
         self.app1 = Flask(__name__)
+        #self.app1.logger.removeHandler(default_handler)
+        #self.app1.logger.setLevel(logging.ERROR)
+        #self.app1.logger.error('FlaskServer: __init__: AAAAA')
+
+        # this gets rid of the werkzeug logging which defaults to logging GET requests
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+
         self.app1.add_url_rule('/', 'root', self.root)
         self.app1.add_url_rule('/impinj_updates', 'impinj_updates', self.impinj_updates)
         self.app1.add_url_rule('/printer_updates', 'printer_updates', self.printer_updates)
@@ -175,7 +186,7 @@ class FlaskServer(Thread):
         self.impinjResults = []
         self.lastImpinjsUpdate = time.time()
         for i, (impinj, info) in enumerate(self.impinjs.items()):
-            print('FlaskServer.setImpinjResults[%d:%s]: info %s ' % (i, impinj, info), file=sys.stderr)
+            #log('FlaskServer.setImpinjResults[%d:%s]: info %s ' % (i, impinj, info), )
             hostname = info.get('hostname', None)
             hostaddr = info.get('hostaddr', None)
             macaddr = info.get('MACAddress', None)
@@ -184,8 +195,8 @@ class FlaskServer(Thread):
             tooltip0 = f"{info.get('Model','')} {info.get('sysdescr','')}"
 
             seenElapsed = time.time() - info.get('lastSeen', 0)
-            if seenElapsed > 10:
-                print('FlaskServer.setImpinjResults[%d:%s]: seenElapsed: %s' % (i, impinj, seenElapsed), file=sys.stderr)
+            #if seenElapsed > 10:
+            #    log('FlaskServer.setImpinjResults[%d:%s]: seenElapsed: %s' % (i, impinj, seenElapsed), )
             self.impinjResults.append({
                 'id': impinj,
                 'name': hostname, 
@@ -198,12 +209,12 @@ class FlaskServer(Thread):
                 'lastSeen': datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s',
                 })
 
-        #print('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, file=sys.stderr)
+        #log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
 
     # called by the main thread to update
     def impinjUpdate(self, impinjInfo=None):
         # update the impinjs dictionary
-        print('FlaskServer.impinjUpdate: impinjInfo: %s' % impinjInfo, file=sys.stderr)
+        #log('FlaskServer.impinjUpdate: impinjInfo: %s' % impinjInfo, )
         with self.semaphore:
             for i, (impinj, info) in enumerate(impinjInfo.items()):
                 if impinj not in self.impinjs:
@@ -211,22 +222,22 @@ class FlaskServer(Thread):
                     if len(self.impinjs) == 1:
                         self.impinjs[impinj] = {'enabled': True, }
                         self.impinjTCPProxy.change(target=info.get('hostaddr', None), )
-                        print('FlaskServer.update[%d:%s]: impinj %s EMPTY' % (i, impinj, self.impinjs[impinj]), file=sys.stderr)
+                        #log('FlaskServer.update[%d:%s]: impinj %s EMPTY' % (i, impinj, self.impinjs[impinj]), )
                 self.impinjs[impinj]['lastSeen'] = time.time()
                 if info:
                     for j, (k, v) in enumerate(info.items()):
-                        #print('FlaskServer.update[%d:%d:%s]: k: %s, v: %s' % (i, j, impinj, k, v), file=sys.stderr)
+                        #log('FlaskServer.update[%d:%d:%s]: k: %s, v: %s' % (i, j, impinj, k, v), )
                         self.impinjs[impinj][k] = v
                         #print('FlaskServer.update[%d:%d:%s]: impinj %s' % (i, j, impinj, self.impinjs[impinj]), )
         
-        #print('FlaskServer.impinjUpdate: impinjs: %s' % self.impinjs, file=sys.stderr)
+        #log('FlaskServer.impinjUpdate: impinjs: %s' % self.impinjs, )
         self.setImpinjResults()
 
     def setPrinterResults(self):
         self.printerResults = []
         self.lastPrintersUpdate = time.time()
         for i, (printer, info) in enumerate(self.printers.items()):
-            #print('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printer, info), file=sys.stderr)
+            #log('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printer, info), )
             hostaddr = info.get('hostaddr', None)
             hostname = info.get('hostname', None)
             macaddr = info.get('MACAddress', None)
@@ -234,8 +245,8 @@ class FlaskServer(Thread):
             address = f"<a href='http://{hostaddr}'>{hostaddr}</a>" if hostaddr else 'n/a'
             tooltip0 = f"{info.get('Model','')} {info.get('sysdescr','')}"
             seenElapsed = time.time() - info.get('lastSeen', 0)
-            if seenElapsed > 10:
-                print('FlaskServer.setPrinterResults[%d:%s]: seenElapsed: %s' % (i, printer, seenElapsed), file=sys.stderr)
+            #if seenElapsed > 10:
+            #    log('FlaskServer.setPrinterResults[%d:%s]: seenElapsed: %s' % (i, printer, seenElapsed), )
             self.printerResults.append({
                 'id': printer,
                 'name': hostname, 
@@ -250,39 +261,39 @@ class FlaskServer(Thread):
                 'lastSeen': datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s',
                 }
             )
-        #print('FlaskServer.printerUpdate: results: %s' % self.printerResults, file=sys.stderr)
+        #log('FlaskServer.printerUpdate: results: %s' % self.printerResults, )
 
     def printerUpdate(self, printerInfo=None):
-        #print('FlaskServer.update: vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv', file=sys.stderr)
-        #print('FlaskServer.update: printerInfo: %s' % printerInfo, file=sys.stderr)
+        #log('FlaskServer.update: vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv', )
+        #log('FlaskServer.update: printerInfo: %s' % printerInfo, )
         with self.semaphore:
             for i, (printer, info) in enumerate(printerInfo.items()):
                 macaddr = info.get('MACAddress', None)
                 serialnumber = info.get('SerialNumber', None)
                 if printer not in self.printers:
                     self.printers[printer] = {'left': False, 'center': True, 'right': False, }
-                    #print('FlaskServer.update[%d:%s]: printer %s EMPTY' % (i, printer, self.printers[printer]), file=sys.stderr)
+                    #log('FlaskServer.update[%d:%s]: printer %s EMPTY' % (i, printer, self.printers[printer]), )
                 self.printers[printer]['lastSeen'] = time.time()
                 if info:
                     for j, (k, v) in enumerate(info.items()):
                         self.printers[printer][k] = v
-        #print('FlaskServer.update: --------------------------------------------', file=sys.stderr)
-        #print('FlaskServer.update: printers: %s' % self.printers, file=sys.stderr)
+        #log('FlaskServer.update: --------------------------------------------', )
+        #log('FlaskServer.update: printers: %s' % self.printers, )
         #for i, (k, v) in enumerate(self.printers.items()):
-        #    print('FlaskServer.update[%d]: printer %s: %s' % (i, k, v), file=sys.stderr)
-        #print('FlaskServer.update: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^', file=sys.stderr)
+        #    log('FlaskServer.update[%d]: printer %s: %s' % (i, k, v), )
+        #log('FlaskServer.update: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^', )
         #for i, (k, v) in enumerate(self.printers.items()):
-        #    print('FlaskServer.update[%d:%s] %s' % (i, k, v), file=sys.stderr)
+        #    log('FlaskServer.update[%d:%s] %s' % (i, k, v), )
 
         self.setPrinterResults()
 
     def run(self):
-        print('run: Starting server', file=sys.stderr)
+        log('run: Starting server', )
         self.server.serve_forever()
-        print('run: server started', file=sys.stderr)
+        log('run: server started', )
 
     def shutdown(self):
-        print('Stopping server', file=sys.stderr)
+        log('Stopping server', )
         self.server.shutdown()
         self.server.server_close()
         self.ctx.pop()
@@ -297,7 +308,7 @@ def main():
     stopEvent.clear()
 
     def sigintHandler(signal, frame):
-        print('SIGINT received %s' % (signal,), file=sys.stderr)
+        log('SIGINT received %s' % (signal,), )
         sigintEvent.set()
         changeEvent.set()
 
@@ -310,9 +321,9 @@ def main():
         changeEvent.clear()
         if sigintEvent.is_set():
             stopEvent.set()
-            print('Shutting down server', file=sys.stderr)
+            log('Shutting down server', )
             server.shutdown()
-            print('Server shutdown', file=sys.stderr)
+            log('Server shutdown', )
             break
 
 if __name__ == '__main__':

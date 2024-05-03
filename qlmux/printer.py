@@ -36,9 +36,9 @@ def safe_str(p,s1,msg):
         log('%s: safe_str[%s]: IGNORING: "%s"' % (p, msg, s))
 
     except Exception as e:
-        log('updatestatus[%s]: exception: %s' % (self.name, e))
+        log('updatestatus[%s]: exception: %s' % (self.hostname, e))
         log(traceback.format_exc(), )
-        self.snmpmedia = ''
+        self.media = ''
     return ''
 
 
@@ -51,6 +51,10 @@ class PrinterStatus (Enum):
     OK = 2
     PRINTING = 3
 
+class PrinterQueue (Enum):
+    CENTER = 0
+    LEFT = 1
+    RIGHT = 2
 
 
 class Job( object ):
@@ -69,93 +73,111 @@ class Job( object ):
 #
 class Printer( object ):
 
-    def __init__(self, name, hostname, sysdescr, macaddress, serialnumber, testport, model, size):
-        self.name = name
-        self.hostname = hostname
-        self.sysdescr = sysdescr
-        self.macaddress = macaddress
-        self.serialnumber = serialnumber
-        self.testport = testport
-        self.model = model
-        self.size = size
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.hostaddr = kwargs.get('hostaddr', '')
+        self.hostname = kwargs.get('hostname', '')
+        self.sysdescr = kwargs.get('sysDescr', '')
+        self.macaddress = kwargs.get('ifPhyAddress', '')
+        self.serialnumber = kwargs.get('serialNumber', '')
+        self.model = kwargs.get('sysName', '')
         self.snmpstatus = SNMPStatus.UNKNOWN
         self.snmpvalue = ''
         self.snmpinfo = ''
-        self.snmpmedia = 'NO LABELS'
-        self.snmpmodel = 'UNKNOWN MODEL'
+
+        self.status = self.media = self.size = None
+
         self.fd = None
-        self.pool = None
+        self.pool = PrinterQueue.CENTER
         self.printjobs = []
         self.currentjob = None
         self.senddata = None
         self.sending = False
         self.jobsFinished = 0
         self.errors = 0
-        self.seen()
+
+        self.lastUsed = self.lastSeen = time()
 
 
-        log('Printer:__init__: name: %s hostname: %s sysdescr: %s %s %s %s %s' % (self.name, self.hostname, self.sysdescr, self.macaddress, self.serialnumber, self.testport, self.model))
-        self.snmpsession = Session(hostname=hostname, community='public', version=1, timeout=.2, retries=0)
 
+        log('Printer:__init__: name: %s hostname: %s model: %s sysdescr: %s %s %s %s' % (self.hostname, self.hostname, self.model, self.sysdescr, self.macaddress, self.serialnumber, self.model))
+        self.snmpsession = Session(hostname=self.hostaddr, community='public', version=1, timeout=.2, retries=0)
+
+    def check(self, size):
+        if self.size != size:
+            return None
+        if self.snmpstatus != SNMPStatus.READY:
+            return None
+        return self.lastUsed
+
+    def used(self):
+        self.lastUsed = time()
     def seen(self):
         self.lastSeen = time()
 
     def __str__(self):
-        return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
-                self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
+        return "Printer[%s] %s %s %s %d\n" % (
+                self.hostname, self.model, self.snmpstatus, self.size, len(self.printjobs))
 
     # updatestatus
     # This is called from the SNMP process to update the printer status using SNMP
     #
-    def updatestatus(self):
+    snmptests = [ (SNMPStatus.NOTAVAILABLE, 'NOT AVAILABLE', 'Not Available'),
+            (SNMPStatus.READY, 'READY', 'Ready'),
+            (SNMPStatus.BUSY, 'BUSY', 'Busy'),
+            (SNMPStatus.PRINTING, 'PRINTING', 'Printing'),
+            (SNMPStatus.COVEROPEN, 'COVER OPEN', 'Printer Cover Open'),
+            (SNMPStatus.ERROR, 'ERROR', 'Error'),
+            (SNMPStatus.UNKNOWN, 'UNKNOWN', 'Unknown')
+            ]
 
-        oldstatus = self.snmpstatus
-        #print('Printer:updatestatus[%s]: %s' % (self.name, self.snmpsession))
-        try:
-            data = self.snmpsession.get('iso.3.6.1.4.1.11.2.4.3.1.2.0')
-            s = safe_str(self.name, data.value, 'SNMPStatus')
-            if s != '':
-                self.snmpvalue = s
-        except:
-            self.snmpvalue = ''
+    def updatepool(self, left=False, right=False, center=False):
+        if left:
+            self.pool = PrinterQueue.LEFT
+        elif right:
+            self.pool = PrinterQueue.RIGHT
+        else:
+            self.pool = PrinterQueue.CENTER
 
-        try:
-            data = self.snmpsession.get('iso.3.6.1.2.1.43.8.2.1.12.1.1')
-            s = safe_str(self.name, data.value, 'SNMPMedia')
-            if s != '':
-                self.snmpmedia = s
-        except Exception as e:
-            log('updatestatus[%s]: exception: %s' % (self.name, e))
-            log(traceback.format_exc(), )
-            self.snmpmedia = ''
+    def update(self, **kwargs):
 
-        try:
-            data = self.snmpsession.get('iso.3.6.1.2.1.25.3.2.1.3.1')
-            s = safe_str(self.name, data.value, 'SNMPModel')
-            if s != '':
-                self.snmpmodel = s
-        except:
-            self.snmpmodel = ''
+        #log('Printer:update[%s]: model: %s' % (self.hostname, self.model))
+        #log('Printer:update[%s]: %s' % (self.hostname, kwargs))
+        status = kwargs.get('Status', SNMPStatus.UNKNOWN)
+        media = kwargs.get('Media', None)
+        #self.snmpmodel = kwargs.get('sysName', 'UNKNOWN MODEL')
+
+        if self.status != status:
+            log('[%s] Changed status: %s' % (self.hostname, self.status))
+            self.snmpstatus = SNMPStatus.UNKNOWN
+            self.snmpinfo = 'Unknown'
+            if status:
+                for s in self.snmptests:
+                    if s[1] in status:
+                        self.snmpstatus = s[0]
+                        self.snmpinfo = s[2]
+                        break
+            log('Printer.update[%s] Changed status: %s --> %s' % (self.hostname, self.status, status))
+            self.status = status
+
+        if self.media != media:
+            if not media:
+                size = None
+            elif media.startswith('62mm'):
+                size = '62mm'
+            elif media.startswith('102mm'):
+                size = '102mm'
+            else:
+                size = 'unknown'
+
+            log('Printer.update[%s] Changed media: %s --> %s' % (self.hostname, self.media, media, ))
+            self.media = media
+            #log('Printer.update[%s] check size: %s --> %s' % (self.hostname, self.size, size, ))
+            if self.size != size:
+                log('Printer.update[%s] Changed size: %s --> %s' % (self.hostname, self.size, size, ))
+                self.size = size
 
 
-        snmptests = [
-                (SNMPStatus.NOTAVAILABLE, 'NOT AVAILABLE', 'Not Available'),
-                (SNMPStatus.READY, 'READY', 'Ready'),
-                (SNMPStatus.BUSY, 'BUSY', 'Busy'),
-                (SNMPStatus.PRINTING, 'PRINTING', 'Printing'),
-                (SNMPStatus.COVEROPEN, 'COVER OPEN', 'Printer Cover Open'),
-                (SNMPStatus.ERROR, 'ERROR', 'Error'),
-                (SNMPStatus.UNKNOWN, 'UNKNOWN', 'Unknown')
-                ]
-
-        for s in snmptests:
-            if re.match(r'%s' % s[1], self.snmpvalue):
-                self.snmpstatus = s[0]
-                self.snmpinfo = s[2]
-                break
-        if oldstatus != self.snmpstatus:
-            #print('Printer:updatestatus[%s]: %s %s'  % (self.name, getTimeNow(), self.snmpstatus.name))
-            log('[%s] %s -> %s' % (self.name, oldstatus, self.snmpstatus.name))
 
     # add a print job to the print jobs queue
     #
@@ -167,24 +189,24 @@ class Printer( object ):
     #
     def checkforjobs(self):
         if len(self.printjobs) == 0:
-            #log('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s NO JOBS' % (self.name, self.status, self.snmpstatus, len(self.printjobs)))
-            #log('Printer:checkforjobs[%s] snmp: %s jobs: %s NO JOBS' % (self.name, self.snmpstatus, len(self.printjobs)))
+            #log('Printer:checkforjobs[%s] status: %s snmp: %s jobs: %s NO JOBS' % (self.hostname, self.status, self.snmpstatus, len(self.printjobs)))
+            #log('Printer:checkforjobs[%s] snmp: %s jobs: %s NO JOBS' % (self.hostname, self.snmpstatus, len(self.printjobs)))
             return False
         if self.snmpstatus != SNMPStatus.READY:
-            log('[%s] snmp: %s jobs: %s SNMP NOT READY' % (self.name, self.snmpstatus, len(self.printjobs)))
+            log('[%s] snmp: %s jobs: %s SNMP NOT READY' % (self.hostname, self.snmpstatus, len(self.printjobs)))
             return False
 
         if self.sending:
-            log('[%s] snmp: %s jobs: %s Already Sending' % (self.name, self.snmpstatus, len(self.printjobs)))
+            log('[%s] snmp: %s jobs: %s Already Sending' % (self.hostname, self.snmpstatus, len(self.printjobs)))
             return False
 
-        log('[%s] snmp: %s jobs: %s HAVE JOBS' % (self.name, self.snmpstatus, len(self.printjobs)))
+        log('[%s] snmp: %s jobs: %s HAVE JOBS' % (self.hostname, self.snmpstatus, len(self.printjobs)))
 
         # get current job and make a copy for working with
         self.currentjob = self.printjobs.pop(0)
-        #print('Printer:checkforjobs[%s] job: %s' % (self.name, self.currentjob))
+        #print('Printer:checkforjobs[%s] job: %s' % (self.hostname, self.currentjob))
         #self.senddata = list(self.currentjob.data)
-        #print('Printer:checkforjobs[%s] data: %s' % (self.name, self.senddata))
+        #print('Printer:checkforjobs[%s] data: %s' % (self.hostname, self.senddata))
         self.sending = True
 
         return True
@@ -198,7 +220,7 @@ class Printer( object ):
     #
     def finished(self, flag):
         self.sending = False
-        log('[%s] finished' % (self.name))
+        log('[%s] finished' % (self.hostname))
         job = self.currentjob
         self.currentjob = None
         #print('Printer:finished: currentjob: %s' % (job))
@@ -215,4 +237,4 @@ class Printer( object ):
 
     def __repr__(self):
         return "Printer[%s] snmpmodel: %s snmpstatus: %s snmpmedia: %s printjobs: %d\n" % (
-                self.name, self.snmpmodel, self.snmpstatus, self.snmpmedia, len(self.printjobs))
+                self.hostname, self.snmpmodel, self.snmpstatus, self.media, len(self.printjobs))

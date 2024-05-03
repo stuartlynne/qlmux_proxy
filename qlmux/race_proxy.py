@@ -39,15 +39,15 @@ class RaceProxy(Thread):
                 # stop all threads except the Flask server
                 # stop the Flask flaskServer
                 #flaskServer.shutdown()
-                #print('flaskServer shutdown', file=sys.stderr)
+                #log('flaskServer shutdown', )
                 break
             while not self.snmpDiscoveredQueue.empty():
                 #hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
                 hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
-                #print('snmpDiscoveredQueue get: %s' % (snmpDiscoveredQueue.get(),), file=sys.stderr)
+                #log('snmpDiscoveredQueue get: %s' % (snmpDiscoveredQueue.get(),), )
                 match sysdescr:
                     case x if 'Impinj' in x:
-                        #print(f'Impinj: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
+                        #log(f'Impinj: {hostaddr}: {hostname} {sysdescr}', )
                         if hostaddr not in self.impinjs:
                             self.impinjs[hostaddr] = ImpinjSNMPThread(
                                 hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
@@ -58,8 +58,8 @@ class RaceProxy(Thread):
                             self.impinjs[hostaddr].updateLastTime()
 
                     case x if 'Brother' in x:
-                        #print(f'Brother: {hostaddr}: {hostname} {sysdescr}', file=sys.stderr)
-                        #print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
+                        #log(f'Brother: {hostaddr}: {hostname} {sysdescr}', )
+                        #log('main: printerStatusQueue: %s' % (printerStatusQueue,), )
                         if hostaddr not in self.printers:
                             self.printers[hostaddr] = PrinterSNMPThread(
                                 hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
@@ -76,9 +76,9 @@ class RaceProxy(Thread):
                     self.qlmuxd.printerUpdate(printerStatus)
                 #self.qlmuxd.printerUpdate(printerStatus)
                 #printer = printerStatusQueue.get()
-                #print(f'printerStatusQueue get: {printer}', file=sys.stderr)
+                #log(f'printerStatusQueue get: {printer}', )
             while not self.impinjStatusQueue.empty():
-                #print(f'impinjStatusQueue get: {impinjStatusQueue.get()}', file=sys.stderr)
+                #log(f'impinjStatusQueue get: {impinjStatusQueue.get()}', )
                 self.flaskServer.impinjUpdate(self.impinjStatusQueue.get())
                 #printer = printerStatusQueue.get()
 
@@ -95,7 +95,7 @@ class RaceProxy(Thread):
         for k, v in self.printers.items():
             if v.is_alive():
                 v.join()
-        print('exiting', file=sys.stderr) 
+        log('exiting', ) 
 
 def raceproxy_main():
 
@@ -112,20 +112,20 @@ def raceproxy_main():
 
 
     def sigintHandler(signal, frame):
-        print('SIGINT received %s' % (signal,), file=sys.stderr)
+        log('SIGINT received %s' % (signal,), )
         stopEvent.set()
         changeEvent.set()
 
     signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
 
-    #print('main: printerStatusQueue: %s' % (printerStatusQueue,), file=sys.stderr)
+    #log('main: printerStatusQueue: %s' % (printerStatusQueue,), )
 
     impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
     flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, )
     qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
 
     threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
-    print('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), file=sys.stderr)
+    #log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
 
     threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
                                    changeEvent=changeEvent, stopEvent=stopEvent, 

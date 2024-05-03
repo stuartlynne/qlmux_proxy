@@ -12,10 +12,11 @@ import select
 import socket
 from threading import Thread as Process
 from time import sleep
+import traceback
 
 from .utils import *
 from .snmp import SNMPStatus
-from .printer import PrinterStatus, Printer
+from .printer import PrinterStatus, Printer, PrinterQueue
 
 import datetime
 getTimeNow = datetime.datetime.now
@@ -30,42 +31,38 @@ getTimeNow = datetime.datetime.now
 #
 class Pool( object ):
 
-    def __init__(self, name=None, listen=None, media=None, printers=None, backups=None):
-        log('Pool:[%s:%s] media: %s ' % (name, listen, media))
-        self.name = name
-        self.printers = printers if printers is not None else []
-        self.backups = backups if backups is not None else []
+    def __init__(self, printers=None, **kwargs):
+        self.name = kwargs['name']
+        self.media = kwargs['media']
+        self.listen = kwargs['listen']
+        self.size = kwargs['size']
+        self.queue = kwargs['queue']
+        log('Pool:[%s:%s] size: %s ' % (self.name, self.listen, self.size))
+        self.printers = printers
         self.queue = Queue()
-        self.listen = listen
-        self.media = media
         self.listenfd = None
         self.datafds = []
-        self.lastprinter = None
         self.jobsReceived = 0
         self.jobsForwarded = 0
-        for p in self.printers:
-            log('Pool:[%s] primary: %s' % (self.name, p))
-        for p in self.backups:
-            log('Pool:[%s] backups: %s' % (self.name, p))
         #self.setlistenfd(None)
     
     def __str__(self):
-        return "%s Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
+        return "[%s:%s:%s]" % (self.name, self.size, self.listen, )
 
     # XXX need to use serial number to identify printers, not name
-    def addPrinter(self, printer, primary=False):
-        if primary is True:
-            if printer not in self.printers:
-                self.printers.append(printer)
-        else:
-            if printer not in self.backups:
-                self.backups.append(printer)
+    #def addPrinter(self, printer, primary=False):
+    #    if primary is True:
+    #        if printer not in self.printers:
+    #            self.printers.append(printer)
+    #    else:
+    #        if printer not in self.backups:
+    #            self.backups.append(printer)
 
-    def removePrinter(self, printer): 
-        if printer in self.printers:
-            self.printers.remove(printer)
-        if printer in self.backups:
-            self.backups.remove(printer)
+    #def removePrinter(self, printer): 
+    #    if printer in self.printers:
+    #        self.printers.remove(printer)
+    #    if printer in self.backups:
+    #        self.backups.remove(printer)
 
     # receive data to be printed
     #
@@ -77,67 +74,31 @@ class Pool( object ):
 
     # find the best printer from the list provided
     #
-    def bestprinter(self, printers):
-        t = None
-        for p in printers:
-            log('Pool:process[%s] printer: %s' % (self.name, p))
-            log('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
-
-            # check if media looks correct
-            matched = False
-            for m in self.media:
-                log('Pool[%s]: match %s %s' % (self.name, m, p.snmpmedia))
-                if not re.match(m, p.snmpmedia):
-                    continue
-                matched = True
-                break;
-
-            if matched is False:
-                continue
-
-            # check if model is correct
-            #if p.snmpmodel != p.model:
-            #    continue
-            # check if READY
-            if p.snmpstatus != SNMPStatus.READY and p.snmpstatus != SNMPStatus.BUSY and p.snmpstatus != SNMPStatus.PRINTING:
-                continue
-
-            if t is None:
-                t = p
-                continue
-            if len(t.printjobs) == len(p.printjobs):
-                if self.lastprinter == t:
-                    t = p
-            elif len(t.printjobs) > len(p.printjobs):
-                t = p
-            continue
-        return t
 
     # forward queued data to best printer available
     #
     def forward(self):
+        # check if we have any work
+        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.queue.qsize()))
         if self.queue.qsize() == 0:
             return
 
-        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.queue.qsize()))
+        #log('[%s] printers: %s' % (self.name, self.printers, )
 
-        printer = self.bestprinter(self.printers)
-
-        if printer is None:
-            printer = self.bestprinter(self.backups)
-            if printer is not None:
-                log('%s [%s] %s FORWARD BACKUP' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
-        else:
-            log('%s [%s] %s FORWARD' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
-
-        if printer is None:
-            log('%s [%s] CANNOT FIND PRINTER' % (getTimeNow().strftime('%H:%M:%S'), self.name))
+        # check if we have any printers
+        try:
+            available = sorted([(p, v.check(self.size)) for p, v in self.printers.items() if v.check(self.size)], key=lambda x: x[1])
+            log('Pool.bestprinter[%s:%s] available: %s' % (self.name, self.size, available))
+        except Exception as e:
+            log('Pool.bestprinter[%s:%s] Exception: %s' % (self.name, self.size, e))
+            log(traceback.format_exc())
             return
 
-        if printer.snmpstatus != SNMPStatus.READY:
-            log('%s [%s] PRINTER Busy' % (getTimeNow().strftime('%H:%M:%S'), self.name))
-            return
-        self.lastprinter = printer
+        if len(available) == 0:
+            log('Pool.bestprinter[%s:%s] No printers available' % (self.name, self.size))
+            return  
+        hostname, lastUsed = available[0]
+        printer = self.printers[hostname]
         printer.add(self, self.queue.get())
         self.jobsForwarded += 1
 

@@ -221,13 +221,13 @@ class Server( object):
     #
     def startSendJob(self, printer):
 
-        log('[%s] %s:%s SENDING' % (printer.name, printer.jobsFinished, printer.errors))
+        log('[%s] %s:%s SENDING' % (printer.hostaddr, printer.jobsFinished, printer.errors))
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.printerSendSockets.append(client)
-        self.socketMap.add(client, 0, SocketType.SEND, printer.name, printer.getJobData(), printer)
+        self.socketMap.add(client, 0, SocketType.SEND, printer.hostaddr, printer.getJobData(), printer)
         client.setblocking(0)
         #client.connect_ex(('127.0.0.1', printer.testport))
-        client.connect_ex((printer.hostname, 9100))
+        client.connect_ex((printer.hostaddr, 9100))
 
 
     def select(self):
@@ -315,7 +315,7 @@ class Server( object):
                     fd, client_address = r.accept()
                     self.poolRecvSockets.append(fd)
                     self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
-                    #print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                    print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
                     log('[%s:%s]: LISTEN %s PRINT'  % (client.port, client.portname, client_address))
                     continue
 
