@@ -66,7 +66,8 @@ def raceproxy_main():
             print('flaskServer shutdown', file=sys.stderr)
             break
         while not snmpDiscoveredQueue.empty():
-            hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
+            #hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
+            hostaddr, hostname, sysdescr, macAddress, serialNumber = snmpDiscoveredQueue.get()
             #print('snmpDiscoveredQueue get: %s' % (snmpDiscoveredQueue.get(),), file=sys.stderr)
             match sysdescr:
                 case x if 'Impinj' in x:
