@@ -79,9 +79,8 @@ class TCPProxy(Thread):
             inputready, outputready, exceptready = select.select(self.input_list, [], [], 1)
 
             # if changeEvent is set, close all proxied connections 
-            if self.changeEvent.is_set():
+            if self.stopEvent.is_set():
                 print('TCPProxy.run: changeEvent is set', file=sys.stderr)
-                self.changeEvent.clear()
                 for k, v in self.channels.items():
                     v.close()
                 self.channels = {}
