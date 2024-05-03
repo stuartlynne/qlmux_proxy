@@ -169,7 +169,7 @@ class MiscFunctions(Script):
                 cell.style.backgroundColor = status === '' ? 'lightcoral' : '';
                 return cell;
             }
-            function addRowsOnMessage(addRow, table, tableHeader, data) {
+            function addRowsOnMessage(addRow, table, tableHeader, tableDescription, data) {
                 // Clear existing rows
                 table.innerHTML = '';
                 tableHeader.innerHTML = '';
@@ -183,7 +183,8 @@ class MiscFunctions(Script):
                 console.dir(data.header);
                 labelCell.colSpan = data.header.length -1;
                 //console.log('onmessage: colSpan: %s', labelCell.colSpan);
-                labelCell.textContent = 'Devices';
+                //labelCell.textContent = 'Devices';
+                labelCell.textContent = tableDescription;
                 headerRow.insertCell().textContent = data.lastUpdate;
                 var headerRow = tableHeader.insertRow();
                 data.header.forEach(function (header) {
@@ -191,12 +192,12 @@ class MiscFunctions(Script):
                     cell.textContent = header;
                 });
             }
-            function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event){
+            function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event, tableDescription){
                 var eventSource = new EventSource(url);
                 eventSource.onmessage = function (event) {
                     // Parse JSON data from the event
                     var data = JSON.parse(event.data);
-                    addRowsOnMessage(addRow, table, tableHeader, data);
+                    addRowsOnMessage(addRow, table, tableHeader, tableDescription, data);
                     }
                 return eventSource;
             }
@@ -206,16 +207,18 @@ class MiscFunctions(Script):
 
 class TableRowListener(Script):
     _addRow = ''
-    def __init__(self, tableName=None, scriptName=None, addRow=None, src=None, text=None):
-        super(TableRowListener, self).__init__(src=None, text=None)
+    def __init__(self, tableName=None, scriptName=None, addRow=None, src=None, text=None, tableDescription=None):
+        super(TableRowListener, self).__init__(src=None, text=None, )
         print('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), file=sys.stderr)
         self.tableName = tableName
         self.scriptName = scriptName
+        self.tableDescription = tableDescription if tableDescription else 'Devices'
         self.text = f"""
             document.addEventListener('DOMContentLoaded', function () {{
                 var table = document.getElementById('{self.tableName}').getElementsByTagName('tbody')[0];
                 var tableHeader = document.getElementById('{self.tableName}').getElementsByTagName('thead')[0];
-                var eventSource = addEventSource('{self.scriptName}', {addRow}, addRowsOnMessage, table, tableHeader, event);
+                var eventSource = addEventSource('{self.scriptName}', {addRow}, addRowsOnMessage, table, tableHeader, event,
+                '{self.tableDescription}');
             }});
             {self._addRow}
             """
@@ -268,8 +271,7 @@ class PrintersTableListener(TableRowListener):
 
     """
     def __init__(self, tableName=None, scriptName=None, addRow=None,):
-        super(PrintersTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, )
-
+        super(PrintersTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='Printers' )
 class ImpinjsTableListener(TableRowListener):
     _addRow = """
                 // Function to add device data to the table
@@ -310,7 +312,7 @@ class ImpinjsTableListener(TableRowListener):
                 }
     """
     def __init__(self, tableName=None, scriptName=None, addRow=None,):
-        super(ImpinjsTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow)
+        super(ImpinjsTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='RFID Readers')
 
 class TestPage:
         
