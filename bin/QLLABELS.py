@@ -8,13 +8,13 @@
 #
 #   Cmd used to print Bib Tag (parameter is PDF file)
 #
-#       [  /home/RaceDB/scripts/QLLABELS.py $1 ]
+#       [  ssh racedb@qlabels.local  QLLABELS.py $1 ]
 # 
 # This script will convert the PDF file to Brother Raster file(s) and 
 # send the Raster file(s) to a Brother QL style label printer or to 
 # the qlmuxd printer spooler.
 #
-# N.b. the file name is provided as a parameters, the PDF data is also
+# N.b. the file name is provided as a parameter, the PDF data is 
 # provided on stdin.
 # 
 # Sending the files directly to the printers on port 9100 works, but 
@@ -32,13 +32,6 @@
 #
 # This script will get labels printed (either directly or via qlmuxd) 
 # far faster than CUPS using the standard Brother QL support files.
-#
-# This script will:
-#
-#   1. Convert $1 to $1-$PAGENO.png for each page in the PDF file
-#   2. Convert each page to $1-$PAGENO.rast
-#   3. Equivalent of cat $1-*.rast | netcat $PRINTER_HOST $PRINTER_PORT
-#
 #
 # The argument provided is the file name which contains information about what is to 
 # be printed. E.g.:
@@ -60,13 +53,19 @@ import socket
 import subprocess
 import jsoncfg
 import json
+import io
+import traceback
 
 import pdf2image
-from pdf2image import convert_from_path
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_path, convert_from_bytes
 
 import sys
 import datetime
+
+from brother_ql.conversion import convert
+from brother_ql.backends.helpers import send
+from brother_ql.raster import BrotherQLRaster
+
 getTimeNow = datetime.datetime.now
 
 def usage(s):
@@ -83,9 +82,6 @@ try:
     fname = os.path.basename(sys.argv[1])
 except:
     usage('No filename arguement')
-
-
-log('fname: %s' % (fname))
 
 
 # parse qlabels.cfg to get:
@@ -122,39 +118,36 @@ printers = config.QLLABELS_Printers()
 #   230489203498023809_bib-719_port-8000_antenna-0_type-Frame.pdf
 #
 # Numeric fields are converted to numbers to allow comparisons like params['antenna'] == 1
-
-#{ print('p: %s' % ('%s-none' %p)) for p in os.path.splitext(fname)[0].split('_')[:]  }
-#{ print('k: %s v: %s' % (k, v)) for k, v in (p.split('-') for p in os.path.splitext(fname)[0].split('_')[:])  }
-
-# N.B. we have seen the random number as prefix and suffix, this allows us to ignore it at either end
-params = { k:(int(v) if v.isdigit() else v) for k, v in (('%s-none' % p).split('-')[:2] for p in os.path.splitext(fname)[0].split('_')[:] ) }
-
+params = { k:(int(v) if v.isdigit() else v) for k, v in (p.split('-') for p in os.path.splitext(fname)[0].split('_')[1:] if '-' in p ) }
 #print('params: %s' % (params))
 
 try:
     size = sizes[params['type']]
 except:
     usage('Do not understand type-%s' % (params['type']))
-#print('size: %s' % (size))
 
 poolMatch = "%s-%d" % (params['port'], params['antenna'])
 try:
     pool = pools[poolMatch]
 except:
     usage('Do not understand %s' % (poolMatch))
-#print('pool: %s' % (pool))
 
 try:
     printerName = pool[size]
 except:
     usage('Do not understand printerName %s' % (printerName))
-#print('printerName: %s' % (printerName))
 
 try:
     printer = printers[printerName]
 except:
     usage('Cannot find printerName %s' % (printerName))
-#print('printer: %s' % (printer))
+
+imagesize = {
+    '62': (1109, 696),
+    '62x100': (1109, 696),
+    '102': (1660, 1164),
+    '102x152': (1660, 1164),
+}
 
 try:
     hostname = printer['hostname']
@@ -165,86 +158,41 @@ except:
     usage('Cannot find one of hostname, port, model, labelsize: %s' % (printer))
     usage()
 
-
-#print('hostname: %s port: %d model: %s labelsize: %s' % (hostname, port, model, labelsize))
-
-
-# convert PDF to PNG images using pdf2image (poppler), data from stdin,
-# then save each image separately as a png.
-#
-#images = convert_from_path('/dev/stdin', size=(1109, 696), dpi=280, grayscale=True)
-#bytes = sys.stdin.buffer.read()
-
-if labelsize == "62" or labelsize == "62x100":
-    size = (1109, 696)
-elif labelsize == "102" or labelsize == "102x152":
-    size = (1660, 1164)
-else:
-    log("Unknown labelsize %s" % (labelsize))
-    exit(1)
-
-#images = convert_from_bytes(sys.stdin.buffer.read(), size=(1109, 696), dpi=280, grayscale=True)
-images = convert_from_bytes(sys.stdin.buffer.read(), size=size, dpi=280, grayscale=True)
-
-last = 0
-for index, image in enumerate(images):
-    image.save(f'/tmp/{fname}-{index}.png')
-    last = index
+# convert directly from stdio.buffer, output to pillow images list
+images = convert_from_bytes(sys.stdin.buffer.read(), size=imagesize[labelsize], dpi=280, grayscale=True)
 
 # convert PNG images to Brother Raster file, Note we use --no-cut for 0..N-1, 
 # the last file will have a cut so that multiple labels will be kept together.
 #
-if last >= 1:
-    for index in range(0, last):
-        #print('image: %d NO-CUT' % index)
-        try:
-            subprocess.check_call([
-                'brother_ql_create', 
-                '--rotate', '90', 
-                '--model', model, 
-                '--label-size', labelsize, 
-                '--no-cut',
-                f'/tmp/{fname}-{index}.png', 
-                f'/tmp/{fname}-{index}.rast' ]) ;
-        except Exception as e:
-            log('brother_ql_create exception: %s' % (e))
-            exit(1)
 
-try:
-    subprocess.check_call([
-        'brother_ql_create', 
-        '--rotate', '90', 
-        '--model', model, 
-        '--label-size', labelsize, 
-        f'/tmp/{fname}-{last}.png', 
-        f'/tmp/{fname}-{last}.rast' ]) ;
-except Exception as e:
-    log('brother_ql_create exception: %s' % (e))
-    exit(1)
+args_base = [ 
+    'brother_ql', '--printer', f"tcp://{hostname}:{port}",
+    '--model', model, 'print', '--rotate', '90', '--label', labelsize, 
+    ]
 
-
-
-# Send *.rast to qlmuxd or direct to printer
+# use brother_ql to convert the pillow images to raster format instructions for the printer
+# and send them via the network to the printer (or qlmuxd).
 #
-s = socket.socket()
-try:
-    s.connect((hostname, port))
-except Exception as e:
-    log('s.connect(%s,%d) %s' % ( hostname, port, e))
-    exit(1)
+backend = 'network'
+printer = f"tcp://{hostname}:{port}"
+kwargs = { 'rotate': '90', 'cut': False, 'label': labelsize, }
+#print('brother_ql: backend: %s printer: %s model: %s kwargs: %s' % (backend, printer, model, kwargs), file=sys.stderr)
+#print('*********************', file=sys.stderr)
 
-for index in range(0, last+1):
-    with open(f'/tmp/{fname}-{index}.rast', "rb") as f:
-        while True:
-            bytes_read = f.read(4096)
-            if not bytes_read:
-                break
-            s.sendall(bytes_read)
-s.close()
-
-# remove the intermediate files
+# N.b. In theory we can convert and print all labels with one convert/send, but 
+# I cannot figure out how to get two labels printed with a single cut at the end.
 #
-#for index in range(0, last):
-#    os.remove('/tmp/{fname}-{index}.png')
-#    os.remove('/tmp/{fname}-{index}.rast')
+#    qlr = BrotherQLRaster(model)
+#    instructions = convert(qlr, images, **kwargs)
+#    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
+#
+for index, image in enumerate(images):
+    if index == len(images) - 1:
+        #print('brother_ql[%d] Last' % (index), file=sys.stderr)
+        kwargs['cut'] = True
+    #else:
+    #    print('brother_ql[%d] ' % (index), file=sys.stderr)
+    qlr = BrotherQLRaster(model)
+    instructions = convert(qlr, [image], **kwargs)
+    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 
