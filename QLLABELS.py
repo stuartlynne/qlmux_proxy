@@ -186,6 +186,12 @@ kwargs = { 'rotate': '90', 'cut': False, 'label': labelsize, }
 #    instructions = convert(qlr, images, **kwargs)
 #    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 #
+# N.b. the brother_ql send works, but we need to send two labels with a single cut at the end as a single job,
+# this produces two jobs, which qlmuxd may send to two printers. Which is not what we want. 
+# We need to take all of the instructions, save them in a bytearray and send them as a single job.
+
+data = None
+databytes = 0
 for index, image in enumerate(images):
     if index == len(images) - 1:
         #print('brother_ql[%d] Last' % (index), file=sys.stderr)
@@ -193,6 +199,33 @@ for index, image in enumerate(images):
     #else:
     #    print('brother_ql[%d] ' % (index), file=sys.stderr)
     qlr = BrotherQLRaster(model)
+
+    # convert the image to raster format instructions, we get bytes back
     instructions = convert(qlr, [image], **kwargs)
-    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
+
+    # append the instructions to the data buffer bytearray, this is slightly painful
+    databytes += len(instructions)
+    if data is None:
+        data = bytearray(instructions)
+    else:
+        data += bytearray(instructions)
+
+    print('brother_ql[%d] instructions: %s %d data: %s %s databytes: %s ' % (index, type(instructions), len(instructions), type(data), len(data), databytes), file=sys.stderr)
+
+    #send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
+
+
+# This
+
+# Send *.rast to qlmuxd or direct to printer
+#
+s = socket.socket()
+try:
+    s.connect((hostname, port))
+    s.sendall(databytes)
+    s.close()
+except Exception as e:
+    log('s.connect(%s,%d) %s' % ( hostname, port, e))
+    exit(1)
+
 
