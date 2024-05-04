@@ -143,39 +143,51 @@ class Printer( object ):
 
         #log('Printer:update[%s]: model: %s' % (self.hostname, self.model))
         #log('Printer:update[%s]: %s' % (self.hostname, kwargs))
-        status = kwargs.get('Status', SNMPStatus.UNKNOWN)
+        status = kwargs.get('Status', None)
         media = kwargs.get('Media', None)
         #self.snmpmodel = kwargs.get('sysName', 'UNKNOWN MODEL')
 
-        if self.status != status:
-            log('[%s] Changed status: %s' % (self.hostname, self.status))
-            self.snmpstatus = SNMPStatus.UNKNOWN
-            self.snmpinfo = 'Unknown'
-            if status:
+        if status: 
+            if self.status != status:
+                log('[%s] Changed status: %s' % (self.hostname, self.status))
+                self.snmpstatus = SNMPStatus.UNKNOWN
+                self.snmpinfo = 'Unknown'
                 for s in self.snmptests:
-                    if s[1] in status:
-                        self.snmpstatus = s[0]
-                        self.snmpinfo = s[2]
-                        break
-            log('Printer.update[%s] Changed status: %s --> %s' % (self.hostname, self.status, status))
-            self.status = status
+                    try:
+                        if s[1] in status:
+                            self.snmpstatus = s[0]
+                            self.snmpinfo = s[2]
+                            break
+                    except Exception as e:
+                        log('updatestatus[%s]: exception: %s' % (self.hostname, e))
+                        log(traceback.format_exc(), )
+                        self.snmpstatus = SNMPStatus.UNKNOWN
+                        self.snmpinfo = 'Unknown'
+                        log('updatestatus[%s]: s: %s ZZZZ' % (self.hostname, s))
+                log('Printer.update[%s] Changed status: %s --> %s' % (self.hostname, self.status, status))
+                self.status = status
+        else:
+            log('Printer.update[%s] status: %s None ZZZZ' % (self.hostname, self.status))
 
-        if self.media != media:
-            if not media:
-                size = None
-            elif media.startswith('62mm'):
-                size = '62mm'
-            elif media.startswith('102mm'):
-                size = '102mm'
-            else:
-                size = 'unknown'
+        if media:
+            if self.media != media:
+                if not media:
+                    size = None
+                elif media.startswith('62mm'):
+                    size = '62mm'
+                elif media.startswith('102mm'):
+                    size = '102mm'
+                else:
+                    size = 'unknown'
 
-            log('Printer.update[%s] Changed media: %s --> %s' % (self.hostname, self.media, media, ))
-            self.media = media
-            #log('Printer.update[%s] check size: %s --> %s' % (self.hostname, self.size, size, ))
-            if self.size != size:
-                log('Printer.update[%s] Changed size: %s --> %s' % (self.hostname, self.size, size, ))
-                self.size = size
+                log('Printer.update[%s] Changed media: %s --> %s' % (self.hostname, self.media, media, ))
+                self.media = media
+                #log('Printer.update[%s] check size: %s --> %s' % (self.hostname, self.size, size, ))
+                if self.size != size:
+                    log('Printer.update[%s] Changed size: %s --> %s' % (self.hostname, self.size, size, ))
+                    self.size = size
+        else:
+            log('Printer.update[%s] media: %s None ZZZZ' % (self.hostname, self.media))
 
 
 
