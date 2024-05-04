@@ -4,5 +4,5 @@
 
 export PATH=../bin:../../bin:$PATH
 
-QLLABELS.py $1 < $1
+../QLLABELS.py $1 < $1
 
