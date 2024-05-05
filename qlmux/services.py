@@ -232,7 +232,7 @@ class Server( object):
 
     def select(self):
 
-        timeout = 10
+        timeout = 2
 
         input_fds = self.poolListenSockets + self.statusListenSockets + self.poolRecvSockets
         output_fds = self.printerSendSockets + self.statusSendSockets
