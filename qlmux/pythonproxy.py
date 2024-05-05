@@ -44,7 +44,7 @@ class TCPProxy(Thread):
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.tcpStatusQueue = tcpStatusQueue
-        log('TCPProxy.__init__[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), )
+        log('TCPProxy.__init__[%s:%s] targetport: %s' % (self.host, self.target, self.targetport), )
 
         self.dataReceived = 0
         self.messagesReceived = 0
@@ -58,19 +58,27 @@ class TCPProxy(Thread):
     #      - close existing connections
     #      - set the new target    
     #      - set changeEvent to signal the change
-    def change(self, target, targetport=None):
-        log('TCPProxy.change[%s] target: %s targetport: %s)' % (self.host, target, targetport), )
+    def change(self, target, targetport=None, ):
+        log('TCPProxy.change[%s] targetport: %s)' % (target, targetport), )
+        self.close_all()
         self.update({'status': 'closing'})
         self.target = target
         if targetport:
             self.targetport = targetport
-        log('TCPProxy.change[%s] target: %s targetport: %s' % (self.host, self.target, self.targetport), )
+        log('TCPProxy.change[%s] targetport: %s' % (self.target, self.targetport), )
         self.dataReceived = 0
         self.messagesReceived = 0
         #for k, v in self.channel.items():
         #    v.close()
         #self.channel = {}
         self.changeEvent.set()
+
+    def close_all(self):
+        log('TCPProxy.close_all[%s]' % (self.target), )
+        for k, v in self.channels.items():
+            v.close()
+        self.channels = {}
+        self.input_list = [self.server]
 
     def run(self):
         self.input_list = [self.server]
@@ -79,34 +87,36 @@ class TCPProxy(Thread):
         while not self.stopEvent.is_set():
             inputready, outputready, exceptready = select.select(self.input_list, [], [], 1)
 
-            # if changeEvent is set, close all proxied connections 
+            # if stopEvent is set, close all proxied connections 
             if self.stopEvent.is_set():
-                log('TCPProxy.run: changeEvent is set', )
-                for k, v in self.channels.items():
-                    v.close()
-                self.channels = {}
-                self.input_list = [self.server]
+                log('TCPProxy.run[%s]: changeEvent is set' % (self.target), )
+                self.close_all()
+                #for k, v in self.channels.items():
+                #    v.close()
+                #self.channels = {}
+                #self.input_list = [self.server]
                 continue
 
             # normal operation, process received data 
             for s in inputready:
 
-                log('TCPProxy.run: AAAA', )
+                log('TCPProxy.run[%s]: AAAA' % (self.target), )
 
                 # New connection
                 if s == self.server:
-                    log('TCPProxy.run: BBBB', )
                     self.on_accept()
-                    log('TCPProxy.run: CCCC', )
+                    log('TCPProxy.run[%s]: accepted' % (self.target), )
                     self.update({'status': 'connected'})
                     break
-                log('TCPProxy.run: DDDD', )
 
                 # Incoming data to be forwarded
                 try:
                     data = s.recv(4096)
+                except OSError as e:
+                    log('TCPProxy.run[%s]: OSError %s' % (self.target, e), )
+                    data = b''
                 except ConnectionResetError as e:
-                    log('TCPProxy.run: %s ConnectionResetError %s' % (s.getpeername(), e), )
+                    log('TCPProxy.run[%s]: ConnectionResetError %s' % (self.target, e), )
                     data = b''
 
                 # No data means the connection is closed
@@ -117,44 +127,44 @@ class TCPProxy(Thread):
                     self.channels[s].send(data)
                     continue
 
-                log('TCPProxy.run[%s]: %s has disconnected' % (self.host, s.getpeername(),), )
-                for c in [s, self.channels[s]]:
-                    self.input_list.remove(c)
-                    self.update({'status': 'disconnected'})
-                    c.close()
-                    del self.channels[c]
+                log('TCPProxy.run[%s]: has disconnected' % (self.target, ), )
+                try:
+                    if s in self.channels:
+                        for c in [s, self.channels[s]]:
+                            self.input_list.remove(c)
+                            self.update({'status': 'disconnected'})
+                            c.close()
+                            del self.channels[c]
+                except KeyError as e:
+                    log('TCPProxy.run[%s]: KeyError %s' % (self.target, e), )
+                    log(traceback.format_exc(), )
 
-        log('TCPProxy.run: stopEvent is set', )
+        log('TCPProxy.run[%s]: stopEvent is set' % (self.target), )
 
 
     def on_accept(self):
-        log('TCPProxy.on_accept[%s] 1111' % (self.host,), )
+        log('TCPProxy.on_accept[%s] 1111' % (self.target,), )
         clientsock, clientaddr = self.server.accept()
-        log('TCPProxy.on_accept[%s] 2222' % (self.host,), )
-        log('TCPProxy.on_accept[%s] has connected %s target: %s targetport: %s' % (self.host, (clientaddr), self.target, self.targetport,), )
-        log('TCPProxy.on_accept[%s] 3333' % (self.host,), )
+        log('TCPProxy.on_accept[%s] has connected %s targetport: %s' % (self.target, (clientaddr), self.targetport,), )
         if not self.target:
             log('TCPProxy.on_accept[%s] has connected, but no target' % (clientaddr,), )
             clientsock.close()
             return
         set_keepalive(clientsock, after_idle_sec=4, interval_sec=1, max_fails=3)
         clientsock.settimeout(5)
-        log('TCPProxy.on_accept[%s] 4444' % (self.host,), )
         forward = Forward()
-        log('TCPProxy.on_accept[%s] 5555' % (self.host,), )
         # XXX this needs to be done asynchronously
         s = Forward().start(self.target, self.targetport)
-        log('TCPProxy.on_accept[%s] 6666' % (self.host,), )
 
         if s:
-            log('TCPProxy.on_accept: %s proxied to %s' % (clientaddr, (self.target, self.targetport)), )
+            log('TCPProxy.on_accept[%s] proxied from %s' % (self.target, clientaddr, ), )
             self.input_list.append(clientsock)
             self.input_list.append(s)
             self.channels[clientsock] = s
             self.channels[s] = clientsock
         else:
-            log("TCPProxy.on_accept: Can't establish connection with remote server.", )
-            log("TCPProxy.on_accept: Closing connection with client side %s" % clientaddr, )
+            log("TCPProxy.on_accept[%s] Can't establish connection with remote server." % (self.target), )
+            log("TCPProxy.on_accept[%s] Closing connection with client side %s" % (self.target, clientaddr), )
             clientsock.close()
 
 class ImpinjTCPProxy(TCPProxy):

@@ -132,7 +132,7 @@ class FlaskServer(Thread):
         #log('FlaskServer.updateImpinjStatus[%s] enabled: %s' % (id, enabled), )
         #log('FlaskServer.updateImpinjStatus[%s] %s' % (id, self.impinjs[id]), )
         if self.impinjTCPProxy:
-            self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'], )
+            self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'] if enabled else None)
         return 'OK'
 
     def __init__(self, impinjTCPProxy=None, qlmuxd=None, **kwargs):
