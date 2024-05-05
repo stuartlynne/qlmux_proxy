@@ -253,6 +253,7 @@ class PrintersTableListener(TableRowListener):
                     row.cells[0].title = device.tooltip0;
                     row.cells[1].title = 'Click to open device Web Adminstration Page';
 
+                    addCell(row, device.stats);
                     addLastSeenCell(row, device.lastSeen);
 
                     // Add event listener to "Enabled" cell
