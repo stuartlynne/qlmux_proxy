@@ -31,6 +31,11 @@ getTimeNow = datetime.datetime.now
 #
 class Pool( object ):
 
+    queues = {
+            PrinterQueue.LEFT: (PrinterQueue.LEFT, PrinterQueue.CENTER, PrinterQueue.RIGHT),
+            PrinterQueue.RIGHT: (PrinterQueue.RIGHT, PrinterQueue.CENTER, PrinterQueue.LEFT),
+    }
+
     def __init__(self, printers=None, **kwargs):
         self.name = kwargs['name']
         self.media = kwargs['media']
@@ -39,7 +44,7 @@ class Pool( object ):
         self.queue = kwargs['queue']
         log('Pool:[%s:%s] size: %s ' % (self.name, self.listen, self.size))
         self.printers = printers
-        self.queue = Queue()
+        self.jobQueue = Queue()
         self.listenfd = None
         self.datafds = []
         self.jobsReceived = 0
@@ -47,7 +52,7 @@ class Pool( object ):
         #self.setlistenfd(None)
     
     def __str__(self):
-        return "[%s:%s:%s]" % (self.name, self.size, self.listen, )
+        return "[%s:%s:%s] %d -> %d" % (self.name, self.size, self.listen, self.jobsReceived, self.jobsForwarded)
 
     # XXX need to use serial number to identify printers, not name
     #def addPrinter(self, printer, primary=False):
@@ -67,9 +72,9 @@ class Pool( object ):
     # receive data to be printed
     #
     def recv(self, data):
-        self.queue.put(data)
+        self.jobQueue.put(data)
         self.jobsReceived += 1
-        log('[%s] jobsReceived: %s recv queue size: %s ' % (self.name, self.jobsReceived, self.queue ))
+        log('[%s] jobsReceived: %s recv queue size: %s ' % (self.name, self.jobsReceived, self.jobQueue ))
 
 
     # find the best printer from the list provided
@@ -79,16 +84,21 @@ class Pool( object ):
     #
     def forward(self):
         # check if we have any work
-        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.queue.qsize()))
-        if self.queue.qsize() == 0:
+        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.jobQueue.qsize()))
+        if self.jobQueue.qsize() == 0:
             return
 
         #log('[%s] printers: %s' % (self.name, self.printers, )
 
         # check if we have any printers
         try:
-            available = sorted([(p, v.check(self.size)) for p, v in self.printers.items() if v.check(self.size)], key=lambda x: x[1])
-            log('Pool.bestprinter[%s:%s] available: %s' % (self.name, self.size, available))
+            # XXX Need to iterate across printers in each pool queue,
+            #   desired queue, center, other
+            for q in self.queues[self.queue]:
+                available = sorted([(p, v.check(q, self.size)) for p, v in self.printers.items() if v.check(q, self.size)], key=lambda x: x[1])
+                if len(available) > 0:
+                    log('Pool.bestprinter[%s:%s] %s available: %s' % (self.name, self.size, q.name, available))
+                    break
         except Exception as e:
             log('Pool.bestprinter[%s:%s] Exception: %s' % (self.name, self.size, e))
             log(traceback.format_exc())
@@ -99,7 +109,7 @@ class Pool( object ):
             return  
         hostname, lastUsed = available[0]
         printer = self.printers[hostname]
-        printer.add(self, self.queue.get())
+        printer.add(self, self.jobQueue.get())
         self.jobsForwarded += 1
 
     def __repr__(self):
