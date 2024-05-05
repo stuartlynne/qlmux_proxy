@@ -49,6 +49,15 @@ class QLMuxd(Thread):
 
     QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
 
+    def setPrinterQueue(self, printerId=None, queue=None):
+        log('QLMuxd.setPrinterQueue[%s]: %s' % (printerId, queue.name))
+        if printerId and printerId in self.Printers:
+            self.Printers[printerId].setQueue(queue)
+
+
+    def printerStats(self):
+        return {k: v.stats() for k, v in self.Printers.items()}
+
     def __init__(self, stopEvent=None, changeEvent=None, ):
         super(QLMuxd, self).__init__()
         self.stopEvent = stopEvent
@@ -134,9 +143,9 @@ class QLMuxd(Thread):
         # while changeEvent.wait():
         while not self.stopEvent.is_set():
 
-            log('QLMuxd: printers: %s' % (self.Printers.keys(),))
-            for i, (p, v) in enumerate(self.Printers.items()):
-                log('QLMuxd[%d:%s] %s' % (i, p, v))
+            #log('QLMuxd: printers: %s' % (self.Printers.keys(),))
+            #for i, (p, v) in enumerate(self.Printers.items()):
+            #    log('QLMuxd[%d:%s] %s' % (i, p, v))
             for i, (p, v) in enumerate(self.Pools.items()):
                 log('QLMuxd[%d] pool: %s' % (i, v))
 
