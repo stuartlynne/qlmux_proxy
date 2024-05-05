@@ -15,6 +15,7 @@ from flask.logging import default_handler
 
 from .htmlpage import TestPage
 from .utils import log
+from .printer import PrinterQueue
 
 
 
@@ -102,10 +103,14 @@ class FlaskServer(Thread):
         queue = data['queue']
         id = data['id']
         enabled = data['enabled']
-        log('FlaskServer.updatePrinterStatus[%s] enabled: %s AAAA' % (id, enabled), )
+        #log('FlaskServer.updatePrinterStatus[%s] enabled: %s AAAA' % (id, enabled), )
         for k in ['left', 'center', 'right']:
             self.printers[id][k] = False
         self.printers[id][queue] = enabled
+        if enabled:
+            self.qlmuxd.setPrinterQueue(id, PrinterQueue[queue.upper()])
+        else:
+            self.qlmuxd.setPrinterQueue(id, PrinterQueue.DISABLED)
         self.setPrinterResults()
         #log('FlaskServer.updatePrinterStatus: %s, queue: %s enabled: %s' % (id, queue, enabled), )
         return 'OK'
@@ -130,8 +135,9 @@ class FlaskServer(Thread):
             self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'], )
         return 'OK'
 
-    def __init__(self, impinjTCPProxy=None, **kwargs):
+    def __init__(self, impinjTCPProxy=None, qlmuxd=None, **kwargs):
         self.impinjTCPProxy = impinjTCPProxy
+        self.qlmuxd = qlmuxd
         self.semaphore = Semaphore()
         self.app1 = Flask(__name__)
         #self.app1.logger.removeHandler(default_handler)
@@ -165,7 +171,7 @@ class FlaskServer(Thread):
         self.lastPrintersUpdate = time.time()
         self.lastImpinjsUpdate = time.time()
         self.impinjHeader = ['Name', 'Address', '', 'UpTime', 'Enabled', 'Last Seen', ]
-        self.printerHeader = ['Name', 'Address', 'Status', 'Media', 'UpTime', 'Left', 'Center', 'Right', 'Last Seen',]
+        self.printerHeader = ['Name', 'Address', 'Status', 'Media', 'UpTime', 'Left', 'Center', 'Right', 'Stats', 'Last Seen',]
         self.app = self.app1
         self.server = make_server('0.0.0.0', 5000, self.app)
         self.ctx = self.app.app_context()
@@ -236,8 +242,10 @@ class FlaskServer(Thread):
     def setPrinterResults(self):
         self.printerResults = []
         self.lastPrintersUpdate = time.time()
-        for i, (printer, info) in enumerate(self.printers.items()):
-            #log('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printer, info), )
+        printerStats = self.qlmuxd.printerStats()
+        #log('FlaskServer.setPrinterResults: printerStats: %s' % printerStats, )
+        for i, (printerId, info) in enumerate(self.printers.items()):
+            #log('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printerId, info), )
             hostaddr = info.get('hostaddr', None)
             hostname = info.get('hostname', None)
             macaddr = info.get('MACAddress', None)
@@ -245,10 +253,11 @@ class FlaskServer(Thread):
             address = f"<a href='http://{hostaddr}'>{hostaddr}</a>" if hostaddr else 'n/a'
             tooltip0 = f"{info.get('Model','')} {info.get('sysdescr','')}"
             seenElapsed = time.time() - info.get('lastSeen', 0)
+            stats = printerStats.get(printerId, None)
             #if seenElapsed > 10:
-            #    log('FlaskServer.setPrinterResults[%d:%s]: seenElapsed: %s' % (i, printer, seenElapsed), )
+            #    log('FlaskServer.setPrinterResults[%d:%s]: seenElapsed: %s' % (i, printerId, seenElapsed), )
             self.printerResults.append({
-                'id': printer,
+                'id': printerId,
                 'name': hostname, 
                 'address': info.get('hostaddr',''),
                 'tooltip0': tooltip0,
@@ -257,6 +266,7 @@ class FlaskServer(Thread):
                 'left': info.get('left', False),
                 'center': info.get('center', False),
                 'right': info.get('right', False),
+                'stats': '%s/%s' % (stats[0], stats[1]) if stats else 'n/a',
                 'SysUpTime': self.sysUpTime(info.get('SysUpTime', 0)),
                 'lastSeen': datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s',
                 }
