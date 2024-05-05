@@ -121,8 +121,8 @@ def raceproxy_main():
     #log('main: printerStatusQueue: %s' % (printerStatusQueue,), )
 
     impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
-    flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, )
     qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
+    flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, qlmuxd=qlmuxd)
 
     threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
     #log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
