@@ -14,7 +14,7 @@ from .utils import log
 class Forward:
     def __init__(self):
         self.forward = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        set(self.forward, after_idle_sec=4, interval_sec=1, max_fails=3)
+        set_keepalive(self.forward, after_idle_sec=4, interval_sec=1, max_fails=3)
         self.forward.settimeout(5)
 
     def start(self, host, port):
@@ -148,14 +148,13 @@ class TCPProxy(Thread):
 
         if s:
             log('TCPProxy.on_accept: %s proxied to %s' % (clientaddr, (self.target, self.targetport)), )
-            log(clientaddr, "has connected", )
             self.input_list.append(clientsock)
             self.input_list.append(s)
             self.channels[clientsock] = s
             self.channels[s] = clientsock
         else:
-            log("Can't establish connection with remote server.", )
-            log("Closing connection with client side", clientaddr, )
+            log("TCPProxy.on_accept: Can't establish connection with remote server.", )
+            log("TCPProxy.on_accept: Closing connection with client side %s" % clientaddr, )
             clientsock.close()
 
 class ImpinjTCPProxy(TCPProxy):
