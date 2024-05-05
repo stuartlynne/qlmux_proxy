@@ -210,7 +210,7 @@ for index, image in enumerate(images):
     else:
         data += bytearray(instructions)
 
-    print('brother_ql[%d] instructions: %s %d data: %s %s databytes: %s ' % (index, type(instructions), len(instructions), type(data), len(data), databytes), file=sys.stderr)
+    #print('brother_ql[%d] instructions: %s %d data: %s %s databytes: %s ' % (index, type(instructions), len(instructions), type(data), len(data), databytes), file=sys.stderr)
 
     #send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 
