@@ -131,7 +131,7 @@ class Printer( object ):
         self.lastSeen = time()
 
     def __str__(self):
-        return "Printer[%s] %s %s %s %s %s %d %s\n" % (
+        return "Printer[%s] %s %s %s %s %s %d %s" % (
                 self.serialnumber, self.queue.name, self.hostname, self.model, self.snmpstatus, self.size, self.jobsFinished, 
                 datetime.datetime.utcfromtimestamp(self.lastUsed).strftime('%H:%M:%S.%f')[0:-3],)
 
@@ -223,17 +223,18 @@ class Printer( object ):
 
         # get current job and make a copy for working with
         self.currentjob = self.printjobs.pop(0)
-        #print('Printer:checkforjobs[%s] job: %s' % (self.hostname, self.currentjob))
+        log('Printer:checkforjobs[%s] job: %s' % (self.hostname, self.currentjob))
         #self.senddata = list(self.currentjob.data)
         #print('Printer:checkforjobs[%s] data: %s' % (self.hostname, self.senddata))
         self.sending = True
         self.lastUsed = time()
 
-        if True:
-            log('[%s] %s FAKE sending' % (self.serialnumber, self.hostname))
-            self.sending = False
-            self.finished(True)
-            return False
+        # XXX if True then we are faking the sending of data with no attempt
+        #if False:
+        #    log('[%s] %s FAKE sending' % (self.serialnumber, self.hostname))
+        #    self.sending = False
+        #    self.finished(True)
+        #    return False
 
         return True
 
