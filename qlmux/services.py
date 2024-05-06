@@ -55,13 +55,13 @@ class SocketInfo( object ):
 
     def __repr__(self):
         if self.recvdata is not None and len(self.recvdata) > 0:
-            str = "\nSocketInfo[%s:%s] %s\nRECV: %s" % (self.port, self.portname, self.porttype.name, len(self.recvdata))
+            str = "SocketInfo[%s:%s] %s RECV: %s" % (self.port, self.portname, self.porttype.name, len(self.recvdata))
             #str = "\nSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
         elif self.senddata is not None and len(self.senddata) > 0:
-            str = "\nSocketInfo[%s:%s] %s\nSEND: %s" % (self.port, self.portname, self.porttype.name, len(self.senddata))
+            str = "SocketInfo[%s:%s] %s SEND: %s" % (self.port, self.portname, self.porttype.name, len(self.senddata))
             #str = "\nSocketInfo[%s:%s] %s" % (self.port, self.portname, self.porttype.name)
         else:
-            str = "\nSocketInfo[%s:%s] %s NO DATA" % (self.port, self.portname, self.porttype.name)
+            str = "SocketInfo[%s:%s] %s NO DATA" % (self.port, self.portname, self.porttype.name)
         return str
 
 
@@ -173,9 +173,9 @@ class Server( object):
                 status += '[%8s: Jammed, out of labels or wrong labels ]\n\n' % ("")
                 continue
 
-            if v.model != v.snmpmodel:
+            if v.model != v.model:
                 status += '\n'
-                status += '[%8s: Wrong Model, have %s, need %s ]\n\n' % (p, v.snmpmodel, v.model)
+                status += '[%8s: Wrong Model, have %s, need %s ]\n\n' % (p, v.model, v.model)
                 continue
 
             # If we get here the printer is READY, BUSY, or PRINTING
@@ -221,12 +221,12 @@ class Server( object):
     #
     def startSendJob(self, printer):
 
-        log('[%s] %s:%s SENDING' % (printer.hostaddr, printer.jobsFinished, printer.errors))
+        log('[%s] %s:%s SENDING' % (printer.hostaddr, printer.jobsFinished, printer.jobsFailed))
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.printerSendSockets.append(client)
         self.socketMap.add(client, 0, SocketType.SEND, printer.hostaddr, printer.getJobData(), printer)
         client.setblocking(0)
-        #client.connect_ex(('127.0.0.1', printer.testport))
+        #client.connect_ex(('127.0.0.1', printer.testport)) 
         client.connect_ex((printer.hostaddr, 9100))
 
 
@@ -295,14 +295,14 @@ class Server( object):
                         data = r.recv(1024)
                         if data:
                             self.socketMap.appendrecvdata(r, data)
-                            #print('Server:select:readable:data[%s}: len: %s' % (connection, len(data)))
+                            log('Server:select:readable:data[%s}: len: %s' % (connection, len(data)))
                             continue
                         else:
                             pass
                     except:
                         pass
 
-                    log('[%s:%s]: RECV no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
+                    log('Server.select[%s:%s]: RECV no data: closing %s' % (connection.port, connection.portname, r.getpeername()) )
                     self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(r))
                     self.poolRecvSockets.remove(r)
                     self.socketMap.remove(r)
@@ -316,7 +316,7 @@ class Server( object):
                     self.poolRecvSockets.append(fd)
                     self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
                     print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
-                    log('[%s:%s]: LISTEN %s PRINT'  % (client.port, client.portname, client_address))
+                    log('Server.select[%s:%s]: LISTEN %s PRINT'  % (client.port, client.portname, client_address))
                     continue
 
                 # handle an incoming connection on a status listen port
@@ -345,11 +345,12 @@ class Server( object):
                     else:
                         d = None
                 elif w in self.printerSendSockets:
+                    # XXX enable for testing 
                     d = client.getsenddata()
 
                 # no data to send to this socket, close the connection
                 if d is None:
-                    log('[%s:%s]: WRITE NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
+                    log('Server.select[%s:%s]: WRITE NO DATA CLOSE: %s' % (client.port, client.portname, socket.error))
                     if w in self.statusSendSockets:
                         self.statusSendSockets.remove(w)
                     elif w in self.printerSendSockets:
@@ -376,28 +377,29 @@ class Server( object):
                 #       except socket.error as e:
 
                 try:
+                    log('Server.select[%s:%s]: len: %d WRITABLE' % (client.port, client.portname, len(d)))
                     sent = w.send(d, socket.MSG_DONTWAIT)
                     #sent = w.send(d)
 
                 except Exception as e:
-                    log('[%s:%s]: len: %d WRITABLE ERROR %s' % (client.port, client.portname, len(d), e))
+                    log('Server.select[%s:%s]: len: %d WRITABLE ERROR %s' % (client.port, client.portname, len(d), e))
                     w.close()
                     try:
                         self.printerSendSockets.remove(w)
                     except:
-                        log('[%s:%s]: CAUGHT exception' % (client.port, client.portname))
+                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
                         pass
 
                     # XXX should this be False to requeue?
                     try:
                         client.client.finished(False)
                     except:
-                        log('[%s:%s]: CAUGHT exception' % (client.port, client.portname))
+                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
                         pass
                     try:
                         self.socketMap.remove(w)
                     except:
-                        log('[%s:%s]: CAUGHT exception' % (client.port, client.portname))
+                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
                         pass
                 continue
 
