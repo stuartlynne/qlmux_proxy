@@ -250,7 +250,7 @@ class ImpinjSNMPThread(SNMPThread, ):
                         snmp_value = self.safe_str(d.value).strip()
                     snmpStatus[snmp_name] = snmp_value
             except Exception as e:
-                log('ImpinjSNMPThread.run[%s:%] Exception: %s' % (self.hostname, self.hostaddr, e), )
+                log('ImpinjSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
                 log(traceback.format_exc(), )
                 continue
 
