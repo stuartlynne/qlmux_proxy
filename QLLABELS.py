@@ -55,6 +55,7 @@ import jsoncfg
 import json
 import io
 import traceback
+import logging
 
 import pdf2image
 from pdf2image import convert_from_path, convert_from_bytes
@@ -211,21 +212,23 @@ for index, image in enumerate(images):
         data += bytearray(instructions)
 
     #print('brother_ql[%d] instructions: %s %d data: %s %s databytes: %s ' % (index, type(instructions), len(instructions), type(data), len(data), databytes), file=sys.stderr)
-
     #send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 
+#exit(0)
 
 # This
+#print('brother_ql[%d] data: %s %s databytes: %s ' % (index, type(data), len(data), databytes), file=sys.stderr)
 
 # Send *.rast to qlmuxd or direct to printer
 #
 s = socket.socket()
 try:
     s.connect((hostname, port))
-    s.sendall(databytes)
+    s.sendall(data)
     s.close()
 except Exception as e:
     log('s.connect(%s,%d) %s' % ( hostname, port, e))
+    log(traceback.format_exc())
     exit(1)
 
 
