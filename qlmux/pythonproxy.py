@@ -22,7 +22,7 @@ class Forward:
             self.forward.connect((host, port))
             return self.forward
         except Exception as e:
-            log(e, )
+            log('Forward.start: Exception: %s' % (e,), )
             return None
 
 class TCPProxy(Thread):
