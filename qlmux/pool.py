@@ -74,7 +74,7 @@ class Pool( object ):
     def recv(self, data):
         self.jobQueue.put(data)
         self.jobsReceived += 1
-        log('[%s] jobsReceived: %s recv queue size: %s ' % (self.name, self.jobsReceived, self.jobQueue ))
+        log('[%s] jobsReceived: %s recv: %s queue size: %s ' % (self.name, self.jobsReceived, len(data), self.jobQueue ))
 
 
     # find the best printer from the list provided
@@ -113,4 +113,4 @@ class Pool( object ):
         self.jobsForwarded += 1
 
     def __repr__(self):
-        return "\nPool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
+        return "Pool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
