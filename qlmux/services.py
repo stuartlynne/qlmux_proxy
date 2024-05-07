@@ -315,7 +315,7 @@ class Server( object):
                     fd, client_address = r.accept()
                     self.poolRecvSockets.append(fd)
                     self.socketMap.add(fd, client.port, SocketType.RECV, client.portname, None, None)
-                    print('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
+                    log('Server:select:readable:client[%s:%s]: poolListenSockets: accept from %s'  % (client.port, client.portname, client_address))
                     log('Server.select[%s:%s]: LISTEN %s PRINT'  % (client.port, client.portname, client_address))
                     continue
 

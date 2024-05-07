@@ -275,7 +275,7 @@ class FlaskServer(Thread):
 
     def printerUpdate(self, printerInfo=None):
         #log('FlaskServer.update: vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv', )
-        #log('FlaskServer.update: printerInfo: %s' % printerInfo, )
+        log('FlaskServer.update: printerInfo: %s' % printerInfo, )
         with self.semaphore:
             for i, (printer, info) in enumerate(printerInfo.items()):
                 macaddr = info.get('MACAddress', None)
@@ -286,7 +286,8 @@ class FlaskServer(Thread):
                 self.printers[printer]['lastSeen'] = time.time()
                 if info:
                     for j, (k, v) in enumerate(info.items()):
-                        self.printers[printer][k] = v
+                        if v != '':
+                            self.printers[printer][k] = v
         #log('FlaskServer.update: --------------------------------------------', )
         #log('FlaskServer.update: printers: %s' % self.printers, )
         #for i, (k, v) in enumerate(self.printers.items()):

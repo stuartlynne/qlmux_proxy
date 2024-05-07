@@ -111,13 +111,13 @@ class PrinterSNMPThread(SNMPThread, ):
     def snmpStatus(self, snmpvalue):
         #log('PrinterSNMPThread.snmpStatus[%s:%s] %s' % (self.hostname, self.hostaddr, self.snmpStatus), )
         snmptests = [
-                (SNMPStatus.NOTAVAILABLE, 'NOT AVAILABLE', 'Not Available'),
-                (SNMPStatus.READY, 'READY', 'Ready'),
-                (SNMPStatus.BUSY, 'BUSY', 'Busy'),
-                (SNMPStatus.PRINTING, 'PRINTING', 'Printing'),
-                (SNMPStatus.COVEROPEN, 'COVER OPEN', 'Printer Cover Open'),
-                (SNMPStatus.ERROR, 'ERROR', 'Error'),
-                (SNMPStatus.UNKNOWN, 'UNKNOWN', 'Unknown')
+                (QLSNMPStatus.NOTAVAILABLE, 'NOT AVAILABLE', 'Not Available'),
+                (QLSNMPStatus.READY, 'READY', 'Ready'),
+                (QLSNMPStatus.BUSY, 'BUSY', 'Busy'),
+                (QLSNMPStatus.PRINTING, 'PRINTING', 'Printing'),
+                (QLSNMPStatus.COVEROPEN, 'COVER OPEN', 'Printer Cover Open'),
+                (QLSNMPStatus.ERROR, 'ERROR', 'Error'),
+                (QLSNMPStatus.UNKNOWN, 'UNKNOWN', 'Unknown')
                 ]
         
         for s in snmptests:
@@ -152,6 +152,8 @@ class PrinterSNMPThread(SNMPThread, ):
                     #log('PrinterSNMPThread.run[%s:%s] %s: value: %s' % (self.hostname, self.hostaddr, snmp_name, snmp_value), )
                     snmpStatus[snmp_name] = snmp_value
             except EasySNMPTimeoutError as e:
+                snmpStatus['Status'] = 'NOT AVAILABLE'
+                self.update(snmpStatus)
                 log('PrinterSNMPThread.run[%s:%s] Exception: %s exiting' % (self.hostname, self.hostaddr, e), )
                 self.changeEvent.set()
                 return
