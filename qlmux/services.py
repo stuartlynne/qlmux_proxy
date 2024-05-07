@@ -184,7 +184,8 @@ class Server( object):
             match = False
             poolmedia = None
             for p1, v1 in self.poolPorts.items():
-                printers = v1.printers + v1.backups
+                #printers = v1.printers + v1.backups
+                printers = v1.printers 
                 media = v1.media
                 #print('[%s] printers: %s' % (p1, printers))
                 #print('[%s] media: %s' % (p1, media))
@@ -195,24 +196,24 @@ class Server( object):
                 #print('SNMPStatus[%s] printers: %s' % (p1, v1.printers))
 
                 for v2 in v1.printers:
-                    if v2.name != p:
+                    if v2 != p:
                         continue
                     poolmedia = v1.media
                     for m in v1.media:
-                        #print('[%s] media: "%s" == "%s"' % (p1, m, v.snmpmedia))
-                        #if m == v.snmpmedia:
-                        if re.match(m, v.snmpmedia):
+                        #print('[%s] media: "%s" == "%s"' % (p1, m, v.media))
+                        #if m == v.media:
+                        if re.match(m, v.media):
                             match = True
-                    #print('[%s] name: %s snmpmedia: %s match: %s' % (p, v2.name, v.snmpmedia, match))
+                    #print('[%s] name: %s media: %s match: %s' % (p, v2.name, v.media, match))
                     break
 
             if not match:
                 status += '\n'
                 status += '[%8s: Wrong Media ]\n' % (p)
-                status += '[%8s: Have \'%s\' Need %s ]\n\n' % (p, v.snmpmedia, poolmedia)
+                status += '[%8s: Have \'%s\' Need %s ]\n\n' % (p, v.media, poolmedia)
                 continue
 
-            status += '[%8s: %-26s %-40s ]\n' % (p, v.snmpmedia, v.snmpinfo)
+            status += '[%8s: %-26s %-40s ]\n' % (p, v.media, v.snmpinfo)
         return status
 
 
