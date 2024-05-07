@@ -84,7 +84,7 @@ class Pool( object ):
     #
     def forward(self):
         # check if we have any work
-        log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.jobQueue.qsize()))
+        #log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.jobQueue.qsize()))
         if self.jobQueue.qsize() == 0:
             return
 
