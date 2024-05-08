@@ -1,0 +1,39 @@
+#
+# qllabels-qlmuxd/docker-compose.yml
+# Copyright (c) 2021 stuart.lynne@gmail.com
+# vim: tabstop=4 shiftwidth=4 expandtab
+# 
+# Build two containers:
+#
+#   qllabels_qlmuxd - QLABELS.py configured to use qlmuxd
+#   qlmuxd - Brother QL printer spooler
+#
+# N.B. Printing directly to Brother QL Printers is not supported and not prevented.
+#
+# qlmuxd implements a printer spooler that allows multiple printers to be shared
+# with fall-over if (when) printers fail (out of labels, cover open, jam, etc).
+#
+# This configuration should be used when the printers are shared and/or you
+# want fall-over to backup printers.
+#
+# RaceDB Configuration: ssh racedb@qllabels.local QLLABELS.py $1
+
+version: '3.4'
+
+services:
+
+    qlmux_proxy:
+        image: qlmux_proxy:lastest
+        container_name: qlmux_proxy
+        hostname: qllabels.local
+        restart: always
+        networks:
+            racedb:
+        volumes:
+            - ../qllabels-qlmuxd/qllabels-qlmuxd.cfg:/usr/local/etc/qllabels.cfg
+            - ../qllabels-qlmuxd/qlmuxd.cfg:/usr/local/etc/qlmuxd.cfg
+        environment:
+            PYTHONUNBUFFERED: 1
+
+networks:
+    racedb:
