@@ -22,9 +22,10 @@ with open("README.md", "rb") as f:
 setup(
     name = "qlmux",
     packages = ["qlmux",],
-    install_requires = [ "enum34", "easysnmp", "json-cfg"],
+    install_requires = [ "enum34", "easysnmp", "json-cfg", "Pillow", "brother_ql", "flask", "pysnmp-lextudio", "yattag", ],
     entry_points = {
         "console_scripts": ['race_proxy = qlmux.race_proxy:raceproxymain'],
+        "console_scripts": ['QLLABELS = qlmux.QLLLABELS:main'],
         },
     version = version,
     description = "RaceDb Proxy for Brother QL Label Printers and Impinj RFID readers",
