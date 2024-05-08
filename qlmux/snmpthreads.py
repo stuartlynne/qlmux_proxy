@@ -145,7 +145,7 @@ class PrinterSNMPThread(SNMPThread, ):
                 #snmp_status[snmp_name] = s
                 self.lastSeen = time()
                 for i, d in enumerate(data):
-                    log('PrinterSNMPThread.run[%s:%s][%d] %s: %s' % (self.hostname, self.hostaddr, i, d.oid, d.value), )
+                    #log('PrinterSNMPThread.run[%s:%s][%d] %s: %s' % (self.hostname, self.hostaddr, i, d.oid, d.value), )
                     try:
                         #snmp_name = oidList[d.oid]
                         snmp_name = oidList[i][1]
@@ -249,7 +249,7 @@ class ImpinjSNMPThread(SNMPThread, ):
                 #snmp_status[snmp_name] = s
                 self.lastSeen = time()
                 for i, d in enumerate(data):
-                    log('ImpinjSNMPThread.run[%s:%s][%d] %s: %s' % (self.hostname, self.hostaddr, i, d.oid, d.value), )
+                    #log('ImpinjSNMPThread.run[%s:%s][%d] %s: %s' % (self.hostname, self.hostaddr, i, d.oid, d.value), )
                     try:
                         #snmp_name = oidList[d.oid]
                         snmp_name = oidList[i][1]
