@@ -244,15 +244,16 @@ for index, image in enumerate(images):
 
 # Send *.rast to qlmuxd or direct to printer
 #
-s = socket.socket()
-hostname = '127.0.0.1'
-try:
-    s.connect((hostname, port))
-    s.sendall(data)
-    s.close()
-except Exception as e:
-    log('s.connect(%s,%d) %s' % ( hostname, port, e))
-    log(traceback.format_exc())
-    exit(1)
+def main():
+    s = socket.socket()
+    hostname = '127.0.0.1'
+    try:
+        s.connect((hostname, port))
+        s.sendall(data)
+        s.close()
+    except Exception as e:
+        log('s.connect(%s,%d) %s' % ( hostname, port, e))
+        log(traceback.format_exc())
+        exit(1)
 
 
