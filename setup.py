@@ -24,12 +24,12 @@ setup(
     packages = ["qlmux",],
     install_requires = [ "enum34", "easysnmp", "json-cfg"],
     entry_points = {
-        "console_scripts": ['race_proxy = qlmux.race_proxy:main']
+        "console_scripts": ['race_proxy = qlmux.race_proxy:raceproxymain'],
         },
     version = version,
-    description = "Python command line application bare bones template.",
+    description = "RaceDb Proxy for Brother QL Label Printers and Impinj RFID readers",
     long_description = long_descr,
     author = "Stuart Lynne",
     author_email = "stuart.lynne@gmail.com",
-    url = "http://bitbucket.org/stuartlynne/qlmux",
+    url = "http://bitbucket.org/stuartlynne/qlmux_proxy",
     )

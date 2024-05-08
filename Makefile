@@ -4,7 +4,7 @@
 
 
 all:
-	@echo "make sdist | install | bdist"
+	@echo "make sdist | install | uninstall | bdist"
 
 clean:
 	rm -f */*pyc
@@ -22,3 +22,5 @@ install:
 install-support:
 	set -x; cp -vr bin/* /usr/local/bin
 
+uninstall:
+	pip3 uninstall qlmux
