@@ -24,7 +24,7 @@ setup(
     packages = ["qlmux",],
     install_requires = [ "enum34", "easysnmp", "json-cfg"],
     entry_points = {
-        "console_scripts": ['qlmuxd = qlmux.qlmuxd:main']
+        "console_scripts": ['race_proxy = qlmux.race_proxy:main']
         },
     version = version,
     description = "Python command line application bare bones template.",
