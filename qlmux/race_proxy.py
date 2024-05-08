@@ -97,7 +97,7 @@ class RaceProxy(Thread):
                 v.join()
         log('exiting', ) 
 
-def raceproxy_main():
+def raceproxymain():
 
     changeEvent = Event()
     stopEvent = Event()
@@ -168,5 +168,5 @@ def raceproxy_main():
 
 if __name__ == '__main__':
 
-    raceproxy_main()
+    raceproxymain()
 
