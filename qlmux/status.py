@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# Set encoding default for python 2.7
-# vim: syntax=python noexpandtab
+# vim: syntax=python expandtab
 
 import sys
 import itertools
@@ -35,12 +34,12 @@ class StatusRequest( object ):
 
 
 #
-# Status Port
+# Status listen
 #
 class StatusPort( object ):
-    def __init__(self, name, port):
+    def __init__(self, name, listen):
         self.name = name
-        self.port = port
+        self.listen = listen
         self.statusRequests = []
 
     def add(self, clientfd, data):

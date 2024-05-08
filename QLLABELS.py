@@ -55,6 +55,7 @@ import jsoncfg
 import json
 import io
 import traceback
+import logging
 
 import pdf2image
 from pdf2image import convert_from_path, convert_from_bytes
@@ -76,12 +77,12 @@ def usage(s):
 def log(s):
         print('%s %s' % (getTimeNow().strftime('%H:%M:%S'), s.rstrip()), file=sys.stderr)
 
-# get the filename provided as the first arguement
+# get the filename provided as the first argument
 #
 try:
     fname = os.path.basename(sys.argv[1])
 except:
-    usage('No filename arguement')
+    usage('No filename argument')
 
 
 # parse qlabels.cfg to get:
@@ -90,23 +91,23 @@ except:
 #   label pools dictionary - map port-antenna to pool for small and large to a pool name
 #   label printers dictionary - hostname and port to use for a each pool
 #
-cfgs = ['/usr/local/etc/qllabels.cfg', 'qllabels.cfg']
-config = None
-for c in cfgs:
-    try:
-        config = jsoncfg.load_config(c)
-        break
-    except Exception as e:
-        log('QLLABELS: error cannot open: %s %s' % (c, e))
-        continue
-if config is None:
-    log('QLLABELS: error cannot open either: %s' % cfgs)
-    exit(1)
+#cfgs = ['/usr/local/etc/qllabels.cfg', 'qllabels.cfg']
+#config = None
+#for c in cfgs:
+#    try:
+#        config = jsoncfg.load_config(c)
+#        break
+#    except Exception as e:
+#        log('QLLABELS: error cannot open: %s %s' % (c, e))
+#        continue
+#if config is None:
+#    log('QLLABELS: error cannot open either: %s' % cfgs)
+#    exit(1)
 
 # get the dictionaries
-sizes = config.QLLABELS_Sizes()
-pools = config.QLLABELS_Pools()
-printers = config.QLLABELS_Printers()
+#sizes = config.QLLABELS_Sizes()
+#pools = config.QLLABELS_Pools()
+#printers = config.QLLABELS_Printers()
 
 #print('sizes: %s' % (sizes))
 #print('printers: %s' % (printers))
@@ -119,16 +120,38 @@ printers = config.QLLABELS_Printers()
 #
 # Numeric fields are converted to numbers to allow comparisons like params['antenna'] == 1
 params = { k:(int(v) if v.isdigit() else v) for k, v in (p.split('-') for p in os.path.splitext(fname)[0].split('_')[1:] if '-' in p ) }
-#print('params: %s' % (params))
+print('params: %s' % (params))
 
+Sizes = {
+    "Tag": "small",
+    "Frame": "small",
+    "Shoulder": "small",
+    "Emergency": "small",
+    "Body": "large",
+  }
+
+Pools = {
+    "8000-0": { "small": "small1", "large": "large1"},
+    "8000-1": { "small": "small1", "large": "large1"},
+    "8000-2": { "small": "small1", "large": "large1"},
+    "8000-3": { "small": "small2", "large": "large1"},
+    "8000-4": { "small": "small2", "large": "large1"},
+}
+Printers = {
+    "small1" : { "port":9101, "model":"QL-710W",  "labelsize": "62x100"},
+    "small2" : { "port":9102, "model":"QL-710W",  "labelsize": "62x100"},
+    "large1":  { "port":9103, "model":"QL-1060N", "labelsize": "102x152"},
+    "large2":  { "port":9104, "model":"QL-1060N", "labelsize": "102x152"},
+} 
+      
 try:
-    size = sizes[params['type']]
+    size = Sizes[params['type']]
 except:
     usage('Do not understand type-%s' % (params['type']))
 
 poolMatch = "%s-%d" % (params['port'], params['antenna'])
 try:
-    pool = pools[poolMatch]
+    pool = Pools[poolMatch]
 except:
     usage('Do not understand %s' % (poolMatch))
 
@@ -138,7 +161,7 @@ except:
     usage('Do not understand printerName %s' % (printerName))
 
 try:
-    printer = printers[printerName]
+    printer = Printers[printerName]
 except:
     usage('Cannot find printerName %s' % (printerName))
 
@@ -150,7 +173,7 @@ imagesize = {
 }
 
 try:
-    hostname = printer['hostname']
+    hostname = '127.0.0.1'
     port = printer['port']
     model = printer['model']
     labelsize = printer['labelsize']
@@ -165,6 +188,7 @@ images = convert_from_bytes(sys.stdin.buffer.read(), size=imagesize[labelsize], 
 # the last file will have a cut so that multiple labels will be kept together.
 #
 
+print('brother_ql: hostname: %s port: %s model: %s labelsize: %s' % (hostname, port, model, labelsize), file=sys.stderr)
 args_base = [ 
     'brother_ql', '--printer', f"tcp://{hostname}:{port}",
     '--model', model, 'print', '--rotate', '90', '--label', labelsize, 
@@ -186,6 +210,12 @@ kwargs = { 'rotate': '90', 'cut': False, 'label': labelsize, }
 #    instructions = convert(qlr, images, **kwargs)
 #    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 #
+# N.b. the brother_ql send works, but we need to send two labels with a single cut at the end as a single job,
+# this produces two jobs, which qlmuxd may send to two printers. Which is not what we want. 
+# We need to take all of the instructions, save them in a bytearray and send them as a single job.
+
+data = None
+databytes = 0
 for index, image in enumerate(images):
     if index == len(images) - 1:
         #print('brother_ql[%d] Last' % (index), file=sys.stderr)
@@ -193,6 +223,36 @@ for index, image in enumerate(images):
     #else:
     #    print('brother_ql[%d] ' % (index), file=sys.stderr)
     qlr = BrotherQLRaster(model)
+
+    # convert the image to raster format instructions, we get bytes back
     instructions = convert(qlr, [image], **kwargs)
-    send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
+
+    # append the instructions to the data buffer bytearray, this is slightly painful
+    databytes += len(instructions)
+    if data is None:
+        data = bytearray(instructions)
+    else:
+        data += bytearray(instructions)
+
+    #print('brother_ql[%d] instructions: %s %d data: %s %s databytes: %s ' % (index, type(instructions), len(instructions), type(data), len(data), databytes), file=sys.stderr)
+    #send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
+
+#exit(0)
+
+# This
+#print('brother_ql[%d] data: %s %s databytes: %s ' % (index, type(data), len(data), databytes), file=sys.stderr)
+
+# Send *.rast to qlmuxd or direct to printer
+#
+s = socket.socket()
+hostname = '127.0.0.1'
+try:
+    s.connect((hostname, port))
+    s.sendall(data)
+    s.close()
+except Exception as e:
+    log('s.connect(%s,%d) %s' % ( hostname, port, e))
+    log(traceback.format_exc())
+    exit(1)
+
 

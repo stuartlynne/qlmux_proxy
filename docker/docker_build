@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -x
+set -x
+docker container stop qlmux_proxy
+docker container rm qlmux_proxy --force --volumes 
+docker image rm -f qlmux_proxy
+docker build --tag qlmux_proxy .
+exit
+
+docker run --detach \
+	--name qlmux_proxy \
+	--hostname qllabels.local \
+	--publish 9100-9104:9100-9104 \
+	--publish 5000:5000 \
+	--restart always \
+	--network racedb \
+	--env PYTHONUNBUFFERED=1 \
+	qlmux_proxy
+

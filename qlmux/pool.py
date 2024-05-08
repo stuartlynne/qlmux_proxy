@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Set encoding default for python 2.7
 # vim: syntax=python expandtab
 
 import sys
@@ -13,10 +12,11 @@ import select
 import socket
 from threading import Thread as Process
 from time import sleep
+import traceback
 
 from .utils import *
 from .snmp import SNMPStatus
-from .printer import PrinterStatus, Printer
+from .printer import PrinterStatus, Printer, PrinterQueue
 
 import datetime
 getTimeNow = datetime.datetime.now
@@ -31,95 +31,86 @@ getTimeNow = datetime.datetime.now
 #
 class Pool( object ):
 
-    def __init__(self, name, port, media, printers, backups):
-        self.name = name
+    queues = {
+            PrinterQueue.LEFT: (PrinterQueue.LEFT, PrinterQueue.CENTER, PrinterQueue.RIGHT),
+            PrinterQueue.RIGHT: (PrinterQueue.RIGHT, PrinterQueue.CENTER, PrinterQueue.LEFT),
+    }
+
+    def __init__(self, printers=None, **kwargs):
+        self.name = kwargs['name']
+        self.media = kwargs['media']
+        self.listen = kwargs['listen']
+        self.size = kwargs['size']
+        self.queue = kwargs['queue']
+        log('Pool:[%s:%s] size: %s ' % (self.name, self.listen, self.size))
         self.printers = printers
-        self.backups = backups
-        self.queue = Queue()
-        self.port = port
-        self.media = media
+        self.jobQueue = Queue()
         self.listenfd = None
         self.datafds = []
-        self.lastprinter = None
-        #log('[%s] queue size: %d' % (self.name, self.queue.qsize()))
-        for p in self.printers:
-            log('Pool:[%s] primary: %s' % (self.name, p))
-        for p in self.backups:
-            log('Pool:[%s] backups: %s' % (self.name, p))
+        self.jobsReceived = 0
+        self.jobsForwarded = 0
         #self.setlistenfd(None)
+    
+    def __str__(self):
+        return "[%s:%s:%s] %d -> %d" % (self.name, self.size, self.listen, self.jobsReceived, self.jobsForwarded)
 
+    # XXX need to use serial number to identify printers, not name
+    #def addPrinter(self, printer, primary=False):
+    #    if primary is True:
+    #        if printer not in self.printers:
+    #            self.printers.append(printer)
+    #    else:
+    #        if printer not in self.backups:
+    #            self.backups.append(printer)
+
+    #def removePrinter(self, printer): 
+    #    if printer in self.printers:
+    #        self.printers.remove(printer)
+    #    if printer in self.backups:
+    #        self.backups.remove(printer)
 
     # receive data to be printed
     #
     def recv(self, data):
-        self.queue.put(data)
-        log('[%s] recv queue size: %s ' % (self.name, self.queue ))
+        self.jobQueue.put(data)
+        self.jobsReceived += 1
+        log('[%s] jobsReceived: %s recv: %s queue size: %s ' % (self.name, self.jobsReceived, len(data), self.jobQueue ))
 
 
     # find the best printer from the list provided
     #
-    def bestprinter(self, printers):
-        t = None
-        for p in printers:
-            log('Pool:process[%s] printer: %s' % (self.name, p))
-            log('Pool:bestprinter[%s] printer: %s snmp: %s media: %s jobs: %s' % (self.name, p.name, p.snmpstatus, p.snmpmedia, len(p.printjobs)))
-
-            # check if media looks correct
-            matched = False
-            for m in self.media:
-                log('Pool[%s]: match %s %s' % (self.name, m, p.snmpmedia))
-                if not re.match(m, p.snmpmedia):
-                    continue
-                matched = True
-                break;
-
-            if matched is False:
-                continue
-
-            # check if model is correct
-            #if p.snmpmodel != p.model:
-            #    continue
-            # check if READY
-            if p.snmpstatus != SNMPStatus.READY and p.snmpstatus != SNMPStatus.BUSY and p.snmpstatus != SNMPStatus.PRINTING:
-                continue
-
-            if t is None:
-                t = p
-                continue
-            if len(t.printjobs) == len(p.printjobs):
-                if self.lastprinter == t:
-                    t = p
-            elif len(t.printjobs) > len(p.printjobs):
-                t = p
-            continue
-        return t
 
     # forward queued data to best printer available
     #
     def forward(self):
-        if self.queue.qsize() == 0:
+        # check if we have any work
+        #log('[%s] forwarded: %s queue size: %d' % (self.name, self.jobsForwarded, self.jobQueue.qsize()))
+        if self.jobQueue.qsize() == 0:
             return
 
-        log('[%s] forward queue size: %d' % (self.name, self.queue.qsize()))
+        #log('[%s] printers: %s' % (self.name, self.printers, )
 
-        printer = self.bestprinter(self.printers)
-
-        if printer is None:
-            printer = self.bestprinter(self.backups)
-            if printer is not None:
-                log('%s [%s] %s FORWARD BACKUP' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
-        else:
-            log('%s [%s] %s FORWARD' % (getTimeNow().strftime('%H:%M:%S'), self.name, printer.name))
-
-        if printer is None:
-            log('%s [%s] CANNOT FIND PRINTER' % (getTimeNow().strftime('%H:%M:%S'), self.name))
+        # check if we have any printers
+        try:
+            # XXX Need to iterate across printers in each pool queue,
+            #   desired queue, center, other
+            for q in self.queues[self.queue]:
+                available = sorted([(p, v.check(q, self.size)) for p, v in self.printers.items() if v.check(q, self.size)], key=lambda x: x[1])
+                if len(available) > 0:
+                    log('Pool.bestprinter[%s:%s] %s available: %s' % (self.name, self.size, q.name, available))
+                    break
+        except Exception as e:
+            log('Pool.bestprinter[%s:%s] Exception: %s' % (self.name, self.size, e))
+            log(traceback.format_exc())
             return
 
-        if printer.snmpstatus != SNMPStatus.READY:
-            log('%s [%s] PRINTER Busy' % (getTimeNow().strftime('%H:%M:%S'), self.name))
-            return
-        self.lastprinter = printer
-        printer.add(self, self.queue.get())
+        if len(available) == 0:
+            log('Pool.bestprinter[%s:%s] No printers available' % (self.name, self.size))
+            return  
+        hostname, lastUsed = available[0]
+        printer = self.printers[hostname]
+        printer.add(self, self.jobQueue.get())
+        self.jobsForwarded += 1
 
     def __repr__(self):
-        return "\nPool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
+        return "Pool[%s] Printers: %s Backups: %s" % (self.name, self.printers, self.backups)
