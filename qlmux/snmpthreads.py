@@ -77,26 +77,27 @@ class PrinterSNMPThread(SNMPThread, ):
     # Printer SNMP OIDs for status and info
     # We only get info once, then we get status every second
     info_printer_oids = {
-                'iso.3.6.1.2.1.25.3.2.1.3.1':  'sysName',       
-                'iso.3.6.1.2.1.1.1.0':         'sysDescr', 
-                'iso.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
-                'iso.3.6.1.2.1.43.5.1.1.17.1': 'serialNumber',
+                '.1.3.6.1.2.1.25.3.2.1.3.1':  'sysName',       
+                '.1.3.6.1.2.1.1.1.0':         'sysDescr', 
+                '.1.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
+                '.1.3.6.1.2.1.43.5.1.1.17.1': 'serialNumber',
         }
 
     status_printer_oids = {
-                "iso.3.6.1.2.1.1.3.0": "SysUpTime",
-                'iso.3.6.1.4.1.11.2.4.3.1.2.0': 'Status',    
-                'iso.3.6.1.2.1.43.8.2.1.12.1.1': 'Media', 
-                'iso.3.6.1.2.1.43.10.2.1.4.1.1': 'PageCount',
-                'iso.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
-                'iso.3.6.1.2.1.43.5.1.1.17.1': 'serialNumber',
+                ".1.3.6.1.2.1.1.3.0": "SysUpTime",
+                '.1.3.6.1.4.1.11.2.4.3.1.2.0': 'Status',    
+                '.1.3.6.1.2.1.43.8.2.1.12.1.1': 'Media', 
+                '.1.3.6.1.2.1.43.10.2.1.4.1.1': 'PageCount',
+                '.1.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
+                '.1.3.6.1.2.1.43.5.1.1.17.1': 'serialNumber',
         }
 
     def __init__(self, printerStatusQueue=None, **kwargs ):
         self.printerStatusQueue = printerStatusQueue
         super(PrinterSNMPThread, self).__init__(**kwargs)
         log('PrinterSNMPThread: %s' % (self.hostname,), )
-        self.snmpsession = Session(hostname=self.hostaddr, community='public', version=1, timeout=.2, retries=0, use_sprint_value=False)
+        self.snmpsession = Session(hostname=self.hostaddr, community='public', version=1, timeout=.2, retries=0, use_sprint_value=False,
+                                   use_numeric=False, use_long_names=True )
         self.lastSeen = time()
         #self.snmpStatus = {}
         self.infoFlag = True
@@ -144,13 +145,17 @@ class PrinterSNMPThread(SNMPThread, ):
                 #snmp_status[snmp_name] = s
                 self.lastSeen = time()
                 for d in data:
-                    snmp_name = oidList[d.oid]
-                    if snmp_name == 'ifPhyAddress':
-                        snmp_value = ':'.join(['%02x' % ord(c) for c in d.value])
-                    else:
-                        snmp_value = self.safe_str(d.value).strip()
-                    #log('PrinterSNMPThread.run[%s:%s] %s: value: %s' % (self.hostname, self.hostaddr, snmp_name, snmp_value), )
-                    snmpStatus[snmp_name] = snmp_value
+                    log('PrinterSNMPThread.run[%s:%s] %s: %s' % (self.hostname, self.hostaddr, d.oid, d.value), )
+                    try:
+                        snmp_name = oidList[d.oid]
+                        if snmp_name == 'ifPhyAddress':
+                            snmp_value = ':'.join(['%02x' % ord(c) for c in d.value])
+                        else:
+                            snmp_value = self.safe_str(d.value).strip()
+                        #log('PrinterSNMPThread.run[%s:%s] %s: value: %s' % (self.hostname, self.hostaddr, snmp_name, snmp_value), )
+                        snmpStatus[snmp_name] = snmp_value
+                    except Exception as e:
+                        log('PrinterSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
             except EasySNMPTimeoutError as e:
                 snmpStatus['Status'] = 'NOT AVAILABLE'
                 self.update(snmpStatus)
@@ -198,14 +203,14 @@ class ImpinjSNMPThread(SNMPThread, ):
     info_impinj_oids = {
                 #'1.3.6.1.4.1.11.2.4.3.1.2.0':'Status',      
                 #'1.3.6.1.2.1.25.3.2.1.3.1':  'Model',       
-                'iso.3.6.1.2.1.1.1.0':         'Description', 
-                'iso.3.6.1.2.1.1.5.0':        'SysName',
-                'iso.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
+                '.1.3.6.1.2.1.1.1.0':         'Description', 
+                '.1.3.6.1.2.1.1.5.0':        'SysName',
+                '.1.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
         }
 
     status_impinj_oids = {
-                "iso.3.6.1.2.1.1.3.0": "SysUpTime",
-                'iso.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
+                ".1.3.6.1.2.1.1.3.0": "SysUpTime",
+                '.1.3.6.1.2.1.2.2.1.6.2':     'ifPhyAddress',
                 #'iso.3.6.1.4.1.22695.1.1.1.2.1.1.5': 'Antenna1',
                 #'iso.3.6.1.4.1.22695.1.1.1.2.1.1.5.1': 'Antenna1',
                 #'iso.3.6.1.4.1.22695.1.1.1.2.1.1.5.2': 'Antenna2',
@@ -217,7 +222,8 @@ class ImpinjSNMPThread(SNMPThread, ):
         self.impinjStatusQueue = impinjStatusQueue
         super(ImpinjSNMPThread, self).__init__(**kwargs)
         #log('ImpinjSNMPThread: %s address: %s' % (self.hostname, self.hostaddr), )
-        self.snmpsession = Session(hostname=self.hostaddr, community='public', version=2, timeout=2, retries=2, retry_no_such=True)
+        self.snmpsession = Session(hostname=self.hostaddr, community='public', version=2, timeout=2, retries=2, retry_no_such=True,
+                                   use_numeric=False, use_long_names=True)
         self.lastSeen = time()
         #self.snmpStatus = {}
         self.infoFlag = True
@@ -245,12 +251,15 @@ class ImpinjSNMPThread(SNMPThread, ):
                 #snmp_status[snmp_name] = s
                 self.lastSeen = time()
                 for d in data:
-                    snmp_name = oidList[d.oid]
-                    if snmp_name == 'ifPhyAddress':
-                        snmp_value = ':'.join(['%02x' % ord(c) for c in d.value])
-                    else:
-                        snmp_value = self.safe_str(d.value).strip()
-                    snmpStatus[snmp_name] = snmp_value
+                    try:
+                        snmp_name = oidList[d.oid]
+                        if snmp_name == 'ifPhyAddress':
+                            snmp_value = ':'.join(['%02x' % ord(c) for c in d.value])
+                        else:
+                            snmp_value = self.safe_str(d.value).strip()
+                        snmpStatus[snmp_name] = snmp_value
+                    except Exception as e:
+                        log('ImpinjSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
             except Exception as e:
                 log('ImpinjSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
                 log(traceback.format_exc(), )
