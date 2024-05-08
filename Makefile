@@ -14,11 +14,11 @@ clean:
 
 
 bdist:
-	python setup.py $@
+	python3 setup.py $@
 sdist:
-	python setup.py $@
+	python3 setup.py $@
 install:
-	python setup.py $@
+	python3 setup.py $@
 install-support:
 	set -x; cp -vr bin/* /usr/local/bin
 
