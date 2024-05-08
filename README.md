@@ -3,21 +3,24 @@
 ## Thu May  2 05:01:13 PM PDT 2024
 
 ## Overview
-This is the new version of *QLMux Proxy* that is designed to support label printing to 
+This is the new version of *QLMuxd* that is designed to support label printing to 
 Brother QL printers that are set up in pools to allow for increased throughput and redundancy
 and act as a proxy for RaceDB to use a dynamically found RFID reader.
+
+The new version uses SNMP broadcast discovery to find QL Label printers and Impinj RFID readers on the network and
+automatically configure them for use if possible.
 
 The goal is to:
 - simplify the setup and use of the QL printers and RFID readers for events for RaceDB use.
 - allow for easy swapping of printers and RFID readers without changing the RaceDB configuration.
-
+- better diagnostics and control of the printers and RFID readers using a simple Web Status page.
 
 QLMux Proxy changes:
 
-no static configuration file
-use of SNMP Broadcast Discovery to find Brother label printers and Impinj RFID readers
-support for proxying traffic from to a found RFID router
-a web status page to monitor printer and RFID readers and effect some configuration for printer queues
+- no static configuration files
+- use of SNMP Broadcast Discovery to find Brother label printers and Impinj RFID readers
+- support for proxying traffic from to a found RFID router
+- a web status page to monitor printer and RFID readers and effect some configuration for printer queues
 
 
 *QLMux Proxy* was designed to support label printing to Brother QL printers that are set up in pools to allow for increased throughput 
@@ -30,35 +33,6 @@ to use a single *IP address* and *port* to connect to the RFID reader. The *QLMu
 correct RFID reader that is dynamically found. By default if only one RFID reader is found, it will be used. If more than one
 RFD reader is found, the first one found will be used, but this may be changed using the builtin Web Status page.
 
-## Swapping Printers
-
-The *QLMux Proxy* will automatically find the printers on the network and add them to the printer pool. If a printer is
-swapped out, the *QLMux Proxy* will automatically find the new printer and add it to the pool. The problem printer can
-be left in place, just open the cover to stop it from being used.
-
-For larger events, it may be necessary to have two pools of printers, and in this case the Web Status page will be used 
-to put the new printer in the correct pool.
-
-## Swapping RFID Readers
-
-The *QLMux Proxy* will automatically find the RFID readers on the network and add them to the list of available RFID readers.
-
-Best practice is to have only one RFID reader on the network at a time. If more than one RFID reader is found, the first one
-will be used. If the RFID reader is swapped out, the *QLMux Proxy* will automatically find the new RFID reader and start using it.
-
-Having the backup RFID reader powered on and not connected will make switching faster.
-
-
-## QLLABELS.py
-
-This is a script that can be used from *RaceDB* to printer labels using the QLMux Proxy. It is a simple script that
-converts the PDF file created by RaceDB to an image and then to the Brother Raster format, then
-using the arguements passed to it, sends the label to the QLMux Proxy 
-for printing on the correct size printer.
-
-The binary data (typically under 100 kbytes) is kept in memory until it can be delivered. The intended
-design is for about a half dozen printers with a load of about one label per second per printer maximum
-(that is the typical maximum print speed of the Brother Label Printers.)
 
 A status is kept for each printer so that fall over can be used to do the following:
 
@@ -102,6 +76,26 @@ This can be used in a script to return error information to a user.
      status = $(netcat 127.0.0.1 9000)
 
 There is also a qlstatus script to get the status data.
+
+## Swapping Printers
+
+The *QLMux Proxy* will automatically find the printers on the network and add them to the printer pool. If a printer is
+swapped out, the *QLMux Proxy* will automatically find the new printer and add it to the pool. The problem printer can
+be left in place, just open the cover to stop it from being used.
+
+For larger events, it may be necessary to have two pools of printers, and in this case the Web Status page will be used 
+to put the new printer in the correct pool.
+
+## Swapping RFID Readers
+
+The *QLMux Proxy* will automatically find the RFID readers on the network and add them to the list of available RFID readers.
+
+Best practice is to have only one RFID reader on the network at a time. If more than one RFID reader is found, the first one
+will be used. If the RFID reader is swapped out, the *QLMux Proxy* will automatically find the new RFID reader and start using it.
+
+Having the backup RFID reader powered on and not connected will make switching faster.
+
+
 
 ## Device Configuration
 
