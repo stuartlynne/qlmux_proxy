@@ -20,5 +20,5 @@ sdist:
 install:
 	python setup.py $@
 install-support:
-	cp -vr bin/* /usr/local/bin
+	set -x; cp -vr bin/* /usr/local/bin
 
