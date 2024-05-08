@@ -22,7 +22,7 @@ with open("README.md", "rb") as f:
 setup(
     name = "qlmux",
     packages = ["qlmux",],
-    install_requires = [ "enum34", "easysnmp", "json-cfg", "Pillow", "brother_ql", "flask", "pysnmp-lextudio", "yattag", ],
+    install_requires = [ "enum34", "easysnmp", "json-cfg", "Pillow", "brother_ql", "flask", "pysnmp-lextudio", "yattag", "pdf2image", ],
     entry_points = {
         "console_scripts": ['QLLABELS = qlmux.QLLABELS:main', 'race_proxy = qlmux.race_proxy:raceproxymain'],
         },
