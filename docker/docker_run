@@ -1,12 +1,9 @@
 #!/bin/bash
 
 set -x
-docker image rm --force qlmux_proxy
-docker build --tag qlmux_proxy .
-
+#docker run --detach \
 docker container rm qlmux_proxy --force --volumes 
 docker run \
-	--detach \
 	--name qlmux_proxy \
 	--net=host \
 	--hostname qllabels.local \
@@ -15,8 +12,8 @@ docker run \
 	--publish 161:161/udp \
 	--restart always \
 	--env PYTHONUNBUFFERED=1 \
-	-v /etc/localtime:/etc/localtime:ro \
-	-t qlmux_proxy 
+	-ti qlmux_proxy \
+	/bin/bash
 	#qlmux_proxy
 	#--network qlmux_proxy \
 

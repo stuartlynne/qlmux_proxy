@@ -36,25 +36,26 @@ RUN passwd -d racedb
 # install brother_ql
 #
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install Pillow
-RUN python3 -m pip install brother_ql
-RUN python3 -m pip install flask
+# this fails via setup.py
 RUN python3 -m pip install pysnmp-lextudio
-RUN python3 -m pip install yattag
+RUN python3 -m pip install Pillow
+#RUN python3 -m pip install brother_ql
+#RUN python3 -m pip install flask
+#RUN python3 -m pip install yattag
+#RUN python3 -m pip install pdf2image
 
 # install qlmux and support files
-RUN python3 -m pip install json-cfg
+#RUN python3 -m pip install json-cfg
 
 # install qlmuxd and supporting files: LABELS, qlstatus, qlps2raster
 #RUN set -x && cd /qlmux && make sdist install install-support
-RUN cd / && git clone https://github.com/stuartlynne/qlmux_proxy.git  && ls -l /qlmux_proxy
-RUN cd / && ls -ld *
-RUN cd / && cd /qlmux_proxy && ls -l
-RUN cd / && cd /qlmux_proxy && cat Makefile
-RUN cd / && ls -ld /qlmux_proxy && cd /qlmux_proxy && cat Makefile && make sdist && make install 
-RUN cd /qlmux_proxy && cat Makefile && make install-support
+RUN cd / && git clone https://github.com/stuartlynne/qlmux_proxy.git 
+RUN cd /qlmux_proxy && make install 
+
+RUN ssh-keygen -A
 
 
+ENTRYPOINT ["/bin/sh", "-c", "/usr/sbin/sshd -D -p 9122 -o PermitEmptyPasswords=yes -o PubkeyAuthentication=no -o PermitEmptyPasswords=yes -o PrintMotd=no & race_proxy"]
 
 #ENTRYPOINT ["/bin/sh", "-c", "sleep 1000000"] ]
 #ENTRYPOINT ["/bin/sh", "-c", "ssh -D -o PermitEmptyPasswords=yes -o PubkeyAuthentication=no -o PermitEmptyPasswords=yes -o PrintMotd=no"]
