@@ -1,0 +1,4 @@
+#!/bin/bash
+set -x
+sudo docker exec -ti qlmux_proxy /bin/bash
+

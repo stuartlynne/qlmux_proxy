@@ -1,6 +1,9 @@
-# QLMux Proxy Docker Setup
+# QLMux Proxy Docker Setup - Host
 
 Running the QLMux Proxy in a container is a convienent way to run the proxy without having to install any dependencies on your host machine. 
+
+This document describes how to run the QLMux Proxy in a container using the host network. This is the simplest way to run the container, and is equivlent to running the QLMux Proxy on the host machine itself but without having 
+to install any dependencies on the host machine.
 
 The QLMux Proxy is to support *RaceDB* for:
 
