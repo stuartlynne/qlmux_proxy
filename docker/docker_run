@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -x
-#docker run --detach \
 docker container rm qlmux_proxy --force --volumes 
 docker run \
 	--name qlmux_proxy \
