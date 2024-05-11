@@ -15,6 +15,20 @@ The goal is to:
 - allow for easy swapping of printers and RFID readers without changing the RaceDB configuration.
 - better diagnostics and control of the printers and RFID readers using a simple Web Status page.
 
+## Installation as a Container
+
+```
+  docker run \
+          --detach \
+          --name qlmux_proxy \
+          --net=host \
+          --restart always \
+          --env PYTHONUNBUFFERED=1 \  
+          -v /etc/localtime:/etc/localtime:ro \
+          -t qlmux_proxy
+```
+
+## QLMux
 QLMux Proxy changes:
 
 - no static configuration files
@@ -85,6 +99,7 @@ be left in place, just open the cover to stop it from being used.
 
 For larger events, it may be necessary to have two pools of printers, and in this case the Web Status page will be used 
 to put the new printer in the correct pool.
+
 
 ## Swapping RFID Readers
 

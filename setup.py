@@ -10,7 +10,7 @@ from setuptools import setup
 
 version = re.search(
     '^__version__\s*=\s*"(.*)"',
-    open('qlmux/qlmuxd.py').read(),
+    open('qlmux/race_proxy.py').read(),
     re.M
     ).group(1)
 

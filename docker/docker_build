@@ -10,14 +10,8 @@ docker run \
 	--detach \
 	--name qlmux_proxy \
 	--net=host \
-	--publish 9100-9104:9100-9104 \
-	--publish 5000:5000 \
-	--publish 161:161/udp \
 	--restart always \
 	--env PYTHONUNBUFFERED=1 \
 	-v /etc/localtime:/etc/localtime:ro \
 	-t qlmux_proxy 
-	#qlmux_proxy
-	#--network qlmux_proxy \
-	#--hostname qllabels.local \
 

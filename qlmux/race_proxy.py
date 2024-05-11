@@ -1,3 +1,9 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+# vim: syntax=python expandtab
+
+__version__ = "1.0.1"
+
 from flask import Flask, render_template, render_template_string, Response, request
 import json
 import sys
