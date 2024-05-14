@@ -9,7 +9,6 @@ import socket
 import sys
 #import Queue
 import datetime
-import jsoncfg
 import json
 from time import sleep
 from queue import Queue

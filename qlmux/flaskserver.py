@@ -6,8 +6,12 @@ import time
 from datetime import timedelta
 import datetime
 import signal
+import traceback
 from threading import Thread, Event, Semaphore
 from queue import Queue
+# apt install python3-openssl
+#from OpenSSL import SSL
+import ssl
 from werkzeug.serving import make_server
 from flask import Flask, render_template, render_template_string, Response, request
 import logging
@@ -145,8 +149,8 @@ class FlaskServer(Thread):
         #self.app1.logger.error('FlaskServer: __init__: AAAAA')
 
         # this gets rid of the werkzeug logging which defaults to logging GET requests
-        log = logging.getLogger('werkzeug')
-        log.setLevel(logging.ERROR)
+        wlog = logging.getLogger('werkzeug')
+        wlog.setLevel(logging.ERROR)
 
         self.app1.add_url_rule('/', 'root', self.root)
         self.app1.add_url_rule('/impinj_updates', 'impinj_updates', self.impinj_updates)
@@ -173,7 +177,26 @@ class FlaskServer(Thread):
         self.impinjHeader = ['Name', 'Address', '', 'UpTime', 'Enabled', 'Last Seen', ]
         self.printerHeader = ['Name', 'Address', 'Status', 'Media', 'UpTime', 'Left', 'Center', 'Right', 'Stats', 'Last Seen',]
         self.app = self.app1
-        self.server = make_server('0.0.0.0', 5000, self.app)
+        if False:
+            #CERT_FILE = 'whiskey.local+5.pem' 
+            #KEY_FILE = 'whiskey.local+5-key.pem'
+            CERT_FILE = 'wg.wimsey.co.pem' 
+            KEY_FILE = 'wg.wimsey.co-key.pem'
+            #CERT_FILE = 'whiskey.ip.pem' 
+            #KEY_FILE =  'whiskey.ip-key.pem'
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            try:
+                context.load_cert_chain(CERT_FILE, KEY_FILE)
+            except Exception as e:
+                log('FlaskServer: __init__: Error loading certificate: %s' % e, )
+                log(traceback.format_exc(), )
+                exit(0)
+
+            self.server = make_server('0.0.0.0', 9143, self.app, ssl_context=context)
+            log('FlaskServer: __init__: using SSL', )
+        else:
+            self.server = make_server('0.0.0.0', 9180, self.app)
+            log('FlaskServer: __init__: not using SSL', )
         self.ctx = self.app.app_context()
         self.ctx.push()
 
@@ -291,12 +314,12 @@ class FlaskServer(Thread):
         self.setPrinterResults()
 
     def run(self):
-        log('run: Starting server', )
+        log('FlaskSever.run: Starting server', )
         self.server.serve_forever()
-        log('run: server started', )
+        log('FlaskSever.run: server started', )
 
     def shutdown(self):
-        log('Stopping server', )
+        log('FlaskSever.Stopping server', )
         self.server.shutdown()
         self.server.server_close()
         self.ctx.pop()
