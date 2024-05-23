@@ -17,10 +17,23 @@ The goal is to:
 
 ## Installation as a Container
 
+The QLMux Proxy is available as a Docker container. The container is based on the Alpine Linux distribution and is
+very small. The container is available on Docker Hub as stuartlynne/qlmux_proxy.
+
+Notes:
+- the container must be run with the *--net=host* option to allow the container to find the printers and RFID readers on the network using *SNMP Broadcast Discovery*. 
+- the qllabels program is in the container 
+- an ssh server is running in the container to allow for external access to the qllabels program
+
+Ports:
+- 9101-9103 to allow for qllabels to push labels to the qlmux proxy.
+- 9122 for access using ssh to run qllabels
+- 9180 for the Web Status page
+
 ```
-  docker run \
+  sudo docker run \
           --detach \
-          --name qlmux_proxy \
+          --name stuartlynne:qlmux_proxy/lastest \
           --net=host \
           --restart always \
           --env PYTHONUNBUFFERED=1 \  
