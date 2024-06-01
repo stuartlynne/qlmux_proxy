@@ -6,12 +6,14 @@ from queue import Queue
 from time import sleep, time
 import signal
 
+from pysnmp.entity import engine, config
 from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
 from pysnmp.carrier.asyncio.dgram import udp
 from pyasn1.codec.ber import encoder, decoder
 from pysnmp.proto import api
 
 from easysnmp import Session
+import traceback
 
 from .utils import log
 
@@ -86,6 +88,39 @@ class DiscoveryThread(Thread, ):
         self.api_version = api_version
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
+        self.snmpEngine = engine.SnmpEngine()
+        #config.addSocketTransport(
+        #        self.snmpEngine,
+        #        udp.domainName + (1,),
+        #        udp.UdpSocketTransport().openServerMode(('192.168.40.16', 161)))
+        #config.addSocketTransport(
+        #        self.snmpEngine,
+        #        udp.domainName + (2,),
+        #        udp.UdpSocketTransport().openServerMode(('192.168.50.16', 161)))
+        # UDP over IPv4 at 127.0.0.1:161
+        log(f'{self.name}: addTransport: udp.domainName: {udp.domainName}')
+        #try:
+            #config.addTransport(
+            #    self.snmpEngine, udp.domainName, udp.UdpTransport().openServerMode(("192.168.40.16", 161))
+            #)
+            #config.addTransport(
+            #    self.snmpEngine, 
+            #    udp.domainName+(1,) ,
+            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
+            #) 
+            #config.addTransport(
+            #    self.snmpEngine, 
+            #    udp.domainName+(2,), 
+            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
+            #)
+            #config.addTransport(
+            #    self.snmpEngine, 
+            #    udp.domainName,
+            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
+            #) 
+        #except Exception as e:
+        #    log(f'{self.name}: Exception: {e}')
+        #    log(traceback.format_exc())
 
     def broadcast_agent_discovery(self, api_version=api.protoVersion2c, community='public', oids=()):
 
@@ -158,17 +193,24 @@ class DiscoveryThread(Thread, ):
             return wholeMsg
 
 
+        flag = False
         while not self.stopEvent.is_set():
             transportDispatcher = AsyncioDispatcher()
 
             transportDispatcher.registerRecvCbFun(cbRecvFun)
 
             # UDP/IPv4
-            udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(allow_broadcast=True)
+            iface = ("192.168.40.16", 61000) if flag else ("192.168.50.124", 61000)
+            flag = not flag
+            udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
             transportDispatcher.registerTransport(udp.domainName, udpSocketTransport)
 
             # Pass message to dispatcher
             transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("255.255.255.255", 161))
+            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.255", 161))
+            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.127", 161))
+            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.40.255", 161))
+            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.255", 161))
 
             # wait for a maximum of 10 responses or time out
             transportDispatcher.jobStarted(1, maxNumberResponses)
@@ -184,6 +226,10 @@ class DiscoveryThread(Thread, ):
 
     def run(self):
         log('[%s] starting run loop' % self.name, )
+
+
+
+
         while not self.stopEvent.is_set():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
