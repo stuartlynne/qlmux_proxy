@@ -170,11 +170,11 @@ class Printer( object ):
                         log('updatestatus[%s] %s exception: %s' % (self.serialnumber, self.hostname, e))
                         log(traceback.format_exc(), )
                         self.snmpstatus = SNMPStatus.UNKNOWN
-                        log('updatestatus[%s]: s: %s ZZZZ' % (self.hostname, s))
+                        #log('updatestatus[%s]: s: %s ZZZZ' % (self.hostname, s))
                 log('Printer.update[%s] %s Changed status: %s --> %s' % (self.serialnumber, self.hostname, self.status, status))
                 self.status = status
-        else:
-            log('Printer.update[%s] %s status: %s None ZZZZ' % (self.serialnumber, self.hostname, self.status))
+        #else:
+        #    log('Printer.update[%s] %s status: %s None ZZZZ' % (self.serialnumber, self.hostname, self.status))
 
         if media:
             if self.media != media:
@@ -193,8 +193,8 @@ class Printer( object ):
                 if self.size != size:
                     log('Printer.update[%s] %s Changed size: %s --> %s' % (self.serialnumber, self.hostname, self.size, size, ))
                     self.size = size
-        else:
-            log('Printer.update[%s] %s media: %s None ZZZZ' % (self.serialnumber, self.hostname, self.media))
+        #else:
+        #    log('Printer.update[%s] %s media: %s None ZZZZ' % (self.serialnumber, self.hostname, self.media))
 
 
 
