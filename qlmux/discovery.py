@@ -235,3 +235,35 @@ class DiscoveryThread(Thread, ):
             break
 
 
+def discoveryMain():
+    changeEvent = Event()
+    stopEvent = Event()
+    def sigintHandler(signal, frame):
+        log('SIGINT received %s' % (signal,), )
+        stopEvent.set()
+        changeEvent.set()
+
+    signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
+
+    snmpDiscoveredQueue = Queue()        # queue for SNMP discovery
+    threads = {}
+    threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
+                                   changeEvent=changeEvent, stopEvent=stopEvent, 
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue)
+
+    threads['discoverv2'] = DiscoveryThread(name='broadcast_agent_discoveryv2c', av='v2c',
+                                   changeEvent=changeEvent, stopEvent=stopEvent, 
+                                   snmpDiscoveredQueue=snmpDiscoveredQueue)
+
+    [v.start() for k, v in threads.items()]
+
+    while not stopEvent.is_set():
+        while not snmpDiscoveredQueue.empty():
+            hostaddr, hostname, sysdescr, macAddress, serialNumber = snmpDiscoveredQueue.get()
+        sleep(2)
+
+
+    pass
+
+if __name__ == '__main__':
+    discoveryMain()
