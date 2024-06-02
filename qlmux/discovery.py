@@ -5,6 +5,10 @@ from threading import Thread, Event
 from queue import Queue
 from time import sleep, time
 import signal
+from functools import partial
+import socket
+import fcntl
+import struct
 
 from pysnmp.entity import engine, config
 from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
@@ -18,8 +22,8 @@ import traceback
 from .utils import log
 
 # Broadcast manager settings
-maxWaitForResponses = 4
-maxNumberResponses = 10
+maxWaitForResponses = 5
+maxNumberResponses = 20
 
 
 # SNMP Broadcast discovery thread  
@@ -47,38 +51,15 @@ class DiscoveryThread(Thread, ):
 
     MACAddress = "1.3.6.1.2.1.2.2.1.6.2"        # MRVINREACH-MIB::ifPhysAddress.2
     SerialNumber = "1.3.6.1.2.1.43.5.1.1.17.1"  # Printer-MIB::prtGeneralSerialNumber.1
-    #Model = "1.3.6.1.2.1.25.3.2.1.3.1",        # Brother Model, does not work with broadcast
-    #Model = "1.3.6.1.2.1.2.2.1.2.1"
     ap1_oids = [ SerialNumber, hostname, sysDescr, ]
     ap2c_oids = [ SerialNumber, hostname, sysDescr, MACAddress, ] 
 
-            #MACAddress,
-        
 
-            #"1.3.6.1.2.1.1.1.0",        # System Description
-            #"1.3.6.1.2.1.1.5.0",         # Hostname
-            #"1.3.6.1.2.1.1.3.0"        # System Uptime
-            #"1.3.6.1.2.1.25.3.2.1.3.1",                # Printer Name
-            #"1.3.6.1.2.1.25.3.2.1.3.1",                 # Brother Model
-            #"1.3.6.1.2.1.2.2.1.6.1",                   # Brother uses this in br-admin   
-            #"1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.1.0",    # Brother Serial number
-            #"1.3.6.1.4.1.11.2.4.3.1.2.0",               # Brother Status
-            #"1.3.6.1.2.1.43.8.2.1.12.1.1",              # Brother Media
-
-            #"1.3.6.1.4.1.22695.1.1.1.2.1.1.5.1", # RFID reader antennas
-            #"1.3.6.1.4.1.22695.1.1.1.2.1.1.5.2", # RFID reader antennas
-            #"1.3.6.1.4.1.22695.1.1.1.2.1.1.5.3", # RFID reader antennas
-            #"1.3.6.1.4.1.22695.1.1.1.2.1.1.5.4", # RFID reader antennas
-            #"1.3.6.1.4.1.22695.1.1.1.2.1",       # RFID reader antennas
-            
-            #"1.3.6.1.4.1.25882.2.1.1",             # System Uptime
-
-    def __init__(self, api_version=None, name=None, snmpDiscoveredQueue=None, stopEvent=None, changeEvent=None, **kwargs):
+    def __init__(self, api_version=None, name=None, av=None, snmpDiscoveredQueue=None, stopEvent=None, changeEvent=None, **kwargs):
         log('Discovery: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue), )
 
-        self.oids = self.ap2c_oids if api_version == api.protoVersion2c else self.ap1_oids
+        self.av = av
 
-        log('Discovery: oids: %s' % (self.oids), )
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
         if not self.snmpDiscoveredQueue:
             raise Exception('DiscoveryThread: snmpDiscoveredQueue is None')
@@ -89,156 +70,160 @@ class DiscoveryThread(Thread, ):
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.snmpEngine = engine.SnmpEngine()
-        #config.addSocketTransport(
-        #        self.snmpEngine,
-        #        udp.domainName + (1,),
-        #        udp.UdpSocketTransport().openServerMode(('192.168.40.16', 161)))
-        #config.addSocketTransport(
-        #        self.snmpEngine,
-        #        udp.domainName + (2,),
-        #        udp.UdpSocketTransport().openServerMode(('192.168.50.16', 161)))
-        # UDP over IPv4 at 127.0.0.1:161
         log(f'{self.name}: addTransport: udp.domainName: {udp.domainName}')
-        #try:
-            #config.addTransport(
-            #    self.snmpEngine, udp.domainName, udp.UdpTransport().openServerMode(("192.168.40.16", 161))
-            #)
-            #config.addTransport(
-            #    self.snmpEngine, 
-            #    udp.domainName+(1,) ,
-            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
-            #) 
-            #config.addTransport(
-            #    self.snmpEngine, 
-            #    udp.domainName+(2,), 
-            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
-            #)
-            #config.addTransport(
-            #    self.snmpEngine, 
-            #    udp.domainName,
-            #    udp.UdpTransport().openServerMode(("192.168.50.124", 161),)
-            #) 
-        #except Exception as e:
-        #    log(f'{self.name}: Exception: {e}')
-        #    log(traceback.format_exc())
 
-    def broadcast_agent_discovery(self, api_version=api.protoVersion2c, community='public', oids=()):
+        # ignore api_version
+        # build a 1 and 2c pMod
+        self.pMods = {}
+        self.reqMsgs = {}
 
-        av = '2c' if api_version == api.protoVersion2c else '1'
+        for sav, oids, pMod in [
+                ('v1', self.ap1_oids, api.protoModules[api.protoVersion1]), 
+                ('v2c', self.ap2c_oids, api.protoModules[api.protoVersion2c])
+        ]:
+            if sav != self.av:
+                continue
 
-        pMod = api.protoModules[api_version]
+            # Build PDU
+            reqPDU = pMod.GetRequestPDU()
+            pMod.apiPDU.setDefaults(reqPDU)
+            oidList = [(oid, pMod.Null("")) for oid in oids]
+            pMod.apiPDU.setVarBinds( reqPDU, oidList,)
+            pMod.apiPDU.setRequestID(reqPDU, pMod.getNextRequestID())
 
-        # Build PDU
-        reqPDU = pMod.GetRequestPDU()
-        pMod.apiPDU.setDefaults(reqPDU)
+            # Build message
+            reqMsg = pMod.Message()
+            pMod.apiMessage.setDefaults(reqMsg)
+            pMod.apiMessage.setCommunity(reqMsg, "public")
+            pMod.apiMessage.setPDU(reqMsg, reqPDU)
 
-        oidList = [(oid, pMod.Null("")) for oid in oids]
-                
+            self.pMods[sav] = pMod
+            self.reqMsgs[sav] = reqMsg
 
-        pMod.apiPDU.setVarBinds(
-            reqPDU, 
-            oidList,
-        )
+    def get_ip_address(self, NICname ):
+        #print('NICname:', NICname)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            return socket.inet_ntoa(fcntl.ioctl(
+               s.fileno(),
+               0x8915,  # SIOCGIFADDR
+               struct.pack('256s', NICname[:15].encode("UTF-8"))
+            )[20:24])
+        except OSError as e:
+            return None
 
-        # Build message
-        reqMsg = pMod.Message()
-        pMod.apiMessage.setDefaults(reqMsg)
-        pMod.apiMessage.setCommunity(reqMsg, "public")
-        pMod.apiMessage.setPDU(reqMsg, reqPDU)
+    def nic_info(self):
+        log('nic_info', )
+        nic = []
+        try:
+            for ix in socket.if_nameindex():
+                name = ix[1]
+                # XXX what is wifi prefix for Linux?
+                # add wifi and ethernet interfaces
+                if not name.startswith(('enp','wlp')):
+                    continue
+                ip = self.get_ip_address( name )
+                if ip:
+                    nic.append( (name, ip) )
+        except Exception as e:
+            log(f'nic_info: Exception: {e}', )
+            log(traceback.format_exc())
+      
+        log(f'nic_info: {nic}', )
+        return nic
 
+    # noinspection PyUnusedLocal,PyUnusedLocal
+    def cbRecvFun(self, tav, transportDispatcher, transportDomain, transportAddress, wholeMsg, reqPDU=None):
+        hostname = None
+        sysDescr = None
+        macAddress = None
+        while wholeMsg:
+            pmod = self.pMods[tav]
+            rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pmod.Message())
+            rspPDU = pmod.apiMessage.getPDU(rspMsg)
+            #log(f'cbRecvFun[{tav}:{transportAddress[0]}]', )
+            rspPDURequestID = pmod.apiPDU.getRequestID(rspPDU)
+            # Check for SNMP errors reported
+            errorStatus = pmod.apiPDU.getErrorStatus(rspPDU)
+            serialNumber = macAddress = hostname = sysDescr = None
+            if not errorStatus:
+                for oid, val in pmod.apiPDU.getVarBinds(rspPDU):
+                    #log('oid: %s' % (oid,), )
+                    match str(oid):
+                        case self.SerialNumber:
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}]SERIALNUMBER {val}', )
+                            serialNumber = val
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] SERIALNUMBER {serialNumber}', )
+                        case self.MACAddress:
+                            macAddress = val.prettyPrint()
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] MACADDRESS {macAddress}', )
+                        case self.hostname:
+                            hostname = val.prettyPrint()
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] HOSTNAME {hostname}', )
+                        case self.sysDescr:
+                            sysDescr = val.prettyPrint()
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] SYSDESCR {sysDescr}', )
+                        case _:
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] oid unknown: %s' % oid, )
 
-        # noinspection PyUnusedLocal,PyUnusedLocal
-        def cbRecvFun( transportDispatcher, transportDomain, transportAddress, wholeMsg, reqPDU=reqPDU):
-            hostname = None
-            sysDescr = None
-            macAddress = None
-            while wholeMsg:
-                rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pMod.Message())
-                rspPDU = pMod.apiMessage.getPDU(rspMsg)
-                #log('transportAddress: %s' % (transportAddress[0]))
-                # Match response to request
-                if pMod.apiPDU.getRequestID(reqPDU) == pMod.apiPDU.getRequestID(rspPDU):
-                    # Check for SNMP errors reported
-                    errorStatus = pMod.apiPDU.getErrorStatus(rspPDU)
-                    serialNumber = macAddress = hostname = sysDescr = None
-                    if not errorStatus:
-                        for oid, val in pMod.apiPDU.getVarBinds(rspPDU):
-                            #log('oid: %s' % (oid,), )
-                            match str(oid):
-                                case self.SerialNumber:
-                                    #log(f'cbRecvFun: {transportAddress[0]}: SERIALNUMBER {val}', )
-                                    serialNumber = val
-                                    #log(f'cbRecvFun: {transportAddress[0]}: SERIALNUMBER {serialNumber}', )
-                                case self.MACAddress:
-                                    macAddress = val.prettyPrint()
-                                    #log(f'cbRecvFun: {transportAddress[0]}: MACADDRESS {macAddress}', )
-                                case self.hostname:
-                                    hostname = val.prettyPrint()
-                                    #log(f'cbRecvFun: {transportAddress[0]}: HOSTNAME {hostname}', )
-                                case self.sysDescr:
-                                    sysDescr = val.prettyPrint()
-                                    #log(f'cbRecvFun: {transportAddress[0]}: SYSDESCR {sysDescr}', )
-                                case _:
-                                    log(f'cbRecvFun: oid unknown: %s' % oid, )
+                    log(f"cbRecvFun[{tav}:{transportAddress[0]}] {oid.prettyPrint()} = {val.prettyPrint()}", )
+                #else:
+                #    print(errorStatus.prettyPrint())
+                if hostname or sysDescr:
+                    #log('cbRecvFun[{i}][%s] hostname: %s macAddress: %s serialNumber: %s sysDescr: %s' % (transportAddress[0], hostname, macAddress, serialNumber, sysDescr, ), )
+                    self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
+                    #log(f'{transportAddress[0]}: {hostname} {sysDescr}')
+                    self.changeEvent.set()
+                transportDispatcher.jobFinished(1)
+            else:
+                log('cbRecvFun[%s:%s] errorStatus: %s' % (tav, transportAddress[0], errorStatus.prettyPrint()), )
+                continue
+        return wholeMsg
 
-                            #log(f"{transportAddress[0]}: {oid.prettyPrint()} = {val.prettyPrint()}", )
-                    #else:
-                    #    print(errorStatus.prettyPrint())
-                    if hostname or sysDescr:
-                        #log('cbRecvFun[%s] hostname: %s macAddress: %s serialNumber: %s sysDescr: %s' % (transportAddress[0], hostname, macAddress, serialNumber, sysDescr, ), )
-                        self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
-                        #log(f'{transportAddress[0]}: {hostname} {sysDescr}')
-                        self.changeEvent.set()
-                    transportDispatcher.jobFinished(1)
-            return wholeMsg
+    def broadcast_agent_discovery(self, ):
 
-
-        flag = False
+        #log(f'broadcast_agent_discovery: pMods: {self.pMods}', )
+        #log(f'broadcast_agent_discovery: reqMsgs: {self.reqMsgs}', )
         while not self.stopEvent.is_set():
-            transportDispatcher = AsyncioDispatcher()
+            # get the network interfaces, these may change over time, e.g. wifi
+            #
+            nics = self.nic_info()
+            log(f'broadcast_agent_discovery: nics: {nics}', )
+            for j, (av, reqMsg) in enumerate(self.reqMsgs.items()):
+                for i, (nic, address) in enumerate(nics):
+                    iface = (address, None)
+                    #log(f'broadcast_agent_discovery: {iface} av:{av} {reqMsg}', )
+                    transportDispatcher = AsyncioDispatcher()
+                    transportDispatcher.registerRecvCbFun(partial(self.cbRecvFun, av))
 
-            transportDispatcher.registerRecvCbFun(cbRecvFun)
+                    # UDP/IPv4
+                    udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
+                    transportDispatcher.registerTransport(udp.domainName, udpSocketTransport)
 
-            # UDP/IPv4
-            iface = ("192.168.40.16", 61000) if flag else ("192.168.50.124", 61000)
-            flag = not flag
-            udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
-            transportDispatcher.registerTransport(udp.domainName, udpSocketTransport)
+                    # Pass message to dispatcher
+                    transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("255.255.255.255", 161))
 
-            # Pass message to dispatcher
-            transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("255.255.255.255", 161))
-            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.255", 161))
-            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.127", 161))
-            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.40.255", 161))
-            #transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("192.168.50.255", 161))
+                    # wait for a maximum of 10 responses or time out
+                    transportDispatcher.jobStarted(1, maxNumberResponses)
 
-            # wait for a maximum of 10 responses or time out
-            transportDispatcher.jobStarted(1, maxNumberResponses)
-
-            # Dispatcher will finish as all jobs counter reaches zero
-            try:
-                transportDispatcher.runDispatcher(4)
-            except:
-                raise
-            finally:
-                pass
-            transportDispatcher.closeDispatcher()
+                    # Dispatcher will finish as all jobs counter reaches zero
+                    try:
+                        transportDispatcher.runDispatcher(maxWaitForResponses)
+                    except:
+                        raise
+                    finally:
+                        pass
+                    transportDispatcher.closeDispatcher()
 
     def run(self):
         log('[%s] starting run loop' % self.name, )
-
-
-
 
         while not self.stopEvent.is_set():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             log('%s: loop run until complete' % (self.name,), )
             try:
-                loop.run_until_complete(self.broadcast_agent_discovery(
-                    api_version=self.api_version,
-                    oids=self.oids))
-                #loop.run_forever(broadcast_agent_discovery(api_version=self.api_version ))
+                loop.run_until_complete(self.broadcast_agent_discovery())
             except Exception as e:
                 #log(f'{self.name}: Exception: {e}')
                 pass
