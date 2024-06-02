@@ -133,11 +133,11 @@ def raceproxymain():
     threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
     #log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
 
-    threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
+    threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
-    threads['discoverv2'] = DiscoveryThread(name='broadcast_agent_discoveryv2c', api_version=api.protoVersion2c, 
+    threads['discoverv2'] = DiscoveryThread(name='broadcast_agent_discoveryv2c', av='v2c',
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
