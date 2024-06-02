@@ -40,6 +40,10 @@ maxNumberResponses = 20
 #   - Brother QL Label printers
 #   - Impinj RFID readers
 #
+
+# This called with the api version to use, v1 or v2c. It cannot do both at the same time.
+# This will find all of the active network interfaces that start with "enp" or "wlp" 
+# and alternate discovery across the ones that are found.
 class DiscoveryThread(Thread, ):
 
     hostname = "1.3.6.1.2.1.1.5.0"              # Hostname
@@ -55,25 +59,20 @@ class DiscoveryThread(Thread, ):
     ap2c_oids = [ SerialNumber, hostname, sysDescr, MACAddress, ] 
 
 
-    def __init__(self, api_version=None, name=None, av=None, snmpDiscoveredQueue=None, stopEvent=None, changeEvent=None, **kwargs):
+    def __init__(self, name=None, av=None, snmpDiscoveredQueue=None, stopEvent=None, changeEvent=None, **kwargs):
         log('Discovery: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue), )
 
         self.av = av
-
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
         if not self.snmpDiscoveredQueue:
             raise Exception('DiscoveryThread: snmpDiscoveredQueue is None')
+
         super(DiscoveryThread, self).__init__(name=name, kwargs=kwargs)
-        log('[%s] starting thread' % self.name, )
         self.name = name
-        self.api_version = api_version
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.snmpEngine = engine.SnmpEngine()
-        log(f'{self.name}: addTransport: udp.domainName: {udp.domainName}')
 
-        # ignore api_version
-        # build a 1 and 2c pMod
         self.pMods = {}
         self.reqMsgs = {}
 
@@ -101,7 +100,6 @@ class DiscoveryThread(Thread, ):
             self.reqMsgs[sav] = reqMsg
 
     def get_ip_address(self, NICname ):
-        #print('NICname:', NICname)
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             return socket.inet_ntoa(fcntl.ioctl(
@@ -113,7 +111,6 @@ class DiscoveryThread(Thread, ):
             return None
 
     def nic_info(self):
-        log('nic_info', )
         nic = []
         try:
             for ix in socket.if_nameindex():
@@ -141,14 +138,12 @@ class DiscoveryThread(Thread, ):
             pmod = self.pMods[tav]
             rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pmod.Message())
             rspPDU = pmod.apiMessage.getPDU(rspMsg)
-            #log(f'cbRecvFun[{tav}:{transportAddress[0]}]', )
             rspPDURequestID = pmod.apiPDU.getRequestID(rspPDU)
             # Check for SNMP errors reported
             errorStatus = pmod.apiPDU.getErrorStatus(rspPDU)
             serialNumber = macAddress = hostname = sysDescr = None
             if not errorStatus:
                 for oid, val in pmod.apiPDU.getVarBinds(rspPDU):
-                    #log('oid: %s' % (oid,), )
                     match str(oid):
                         case self.SerialNumber:
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}]SERIALNUMBER {val}', )
@@ -167,12 +162,8 @@ class DiscoveryThread(Thread, ):
                             log(f'cbRecvFun[{tav}:{transportAddress[0]}] oid unknown: %s' % oid, )
 
                     log(f"cbRecvFun[{tav}:{transportAddress[0]}] {oid.prettyPrint()} = {val.prettyPrint()}", )
-                #else:
-                #    print(errorStatus.prettyPrint())
                 if hostname or sysDescr:
-                    #log('cbRecvFun[{i}][%s] hostname: %s macAddress: %s serialNumber: %s sysDescr: %s' % (transportAddress[0], hostname, macAddress, serialNumber, sysDescr, ), )
                     self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
-                    #log(f'{transportAddress[0]}: {hostname} {sysDescr}')
                     self.changeEvent.set()
                 transportDispatcher.jobFinished(1)
             else:
@@ -182,17 +173,13 @@ class DiscoveryThread(Thread, ):
 
     def broadcast_agent_discovery(self, ):
 
-        #log(f'broadcast_agent_discovery: pMods: {self.pMods}', )
-        #log(f'broadcast_agent_discovery: reqMsgs: {self.reqMsgs}', )
         while not self.stopEvent.is_set():
             # get the network interfaces, these may change over time, e.g. wifi
             #
             nics = self.nic_info()
-            log(f'broadcast_agent_discovery: nics: {nics}', )
             for j, (av, reqMsg) in enumerate(self.reqMsgs.items()):
                 for i, (nic, address) in enumerate(nics):
                     iface = (address, None)
-                    #log(f'broadcast_agent_discovery: {iface} av:{av} {reqMsg}', )
                     transportDispatcher = AsyncioDispatcher()
                     transportDispatcher.registerRecvCbFun(partial(self.cbRecvFun, av))
 
@@ -216,22 +203,18 @@ class DiscoveryThread(Thread, ):
                     transportDispatcher.closeDispatcher()
 
     def run(self):
-        log('[%s] starting run loop' % self.name, )
 
         while not self.stopEvent.is_set():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            log('%s: loop run until complete' % (self.name,), )
             try:
                 loop.run_until_complete(self.broadcast_agent_discovery())
             except Exception as e:
                 #log(f'{self.name}: Exception: {e}')
                 pass
-            log('%s: loop finished' % (self.name), )
             loop.stop()
             loop.close()
             sleep(1)
-            log('%s: loop closed' % (self.name,), )
             break
 
 
