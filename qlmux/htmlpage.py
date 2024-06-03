@@ -110,99 +110,135 @@ class Script:
 
 class MiscFunctions(Script):
     _text = """
-            // Send HTTP request to update server with new status
-            function sendPost(cell, url, data) {
-                console.log('sendPost: %s', url);
-                console.dir(data);
-                cell.style.backgroundColor = 'lightblue';
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', url, true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.send(JSON.stringify(data));
-                setTimeout(function () { cell.style.backgroundColor = ''; }, 4000);
-            }
+        // Send HTTP request to update server with new status
+        function sendPost(cell, url, data) {
+            console.log('sendPost: %s', url);
+            console.dir(data);
+            cell.style.backgroundColor = 'lightblue';
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify(data));
+            setTimeout(function () { cell.style.backgroundColor = ''; }, 4000);
+        }
 
-            function addCell(row, text) {
-                var cell = row.insertCell();
-                cell.textContent = text;
+        function addCell(row, text) {
+            var cell = row.insertCell();
+            cell.textContent = text;
+        }
+
+        // Set enabled/disabled status for cell, and color background
+        function setEnabled(cell, enabled) {
+            cell.textContent = enabled ? 'Enabled' : 'Disabled';
+            cell.style.backgroundColor = enabled ? 'lightgreen' : '';
+        }
+
+        function addEnabledCell(row, enabled) {
+            var cell = row.insertCell();
+            setEnabled(cell, enabled);
+            return cell;
+        }
+
+        function addLastSeenCell(row, lastSeen) {
+            var cell = row.insertCell();
+            cell.textContent = lastSeen 
+            if (lastSeen.includes('10s')) {
+                cell.style.backgroundColor = '';
+            } else {
+                cell.style.backgroundColor = 'lightcoral';
             }
-            // Set enabled/disabled status for cell, and color background
-            function setEnabled(cell, enabled) {
-                cell.textContent = enabled ? 'Enabled' : 'Disabled';
-                cell.style.backgroundColor = enabled ? 'lightgreen' : '';
-            }
-            function addEnabledCell(row, enabled) {
-                var cell = row.insertCell();
-                setEnabled(cell, enabled);
-                return cell;
-            }
-            function addLastSeenCell(row, lastSeen) {
-                var cell = row.insertCell();
-                cell.textContent = lastSeen 
-                if (lastSeen.includes('10s')) {
-                    cell.style.backgroundColor = '';
-                    //console.log('addLastSeenCell: %s DEFAULT', lastSeen);
-                }
-                else {
-                    cell.style.backgroundColor = 'lightcoral';
-                    //console.log('addLastSeenCell: %s CORAL', lastSeen);
-                }
-            }
-            function addStatusCell(row, status) {
-                var cell = row.insertCell();
-                cell.textContent = status;
-                switch(status) {
+        }
+
+        function addStatusCell(row, status) {
+            var cell = row.insertCell();
+            cell.textContent = status;
+            switch(status) {
                 case 'READY':
                     cell.style.backgroundColor = '';
-                    break
+                    break;
                 case 'BUSY':
                     cell.style.backgroundColor = 'lightgreen';
-                    break
+                    break;
                 default:
                     cell.style.backgroundColor = 'lightcoral';
-                    break
+                    break;
+            }
+            return cell;
+        }
+
+        function addMediaCell(row, status) {
+            var cell = row.insertCell();
+            cell.textContent = status === '' ? 'No Media' : status;
+            cell.style.backgroundColor = status === '' ? 'lightcoral' : '';
+            return cell;
+        }
+
+        function addRowsOnMessage(addRow, table, tableHeader, tableDescription, data) {
+            // Clear existing rows
+            table.innerHTML = '';
+            tableHeader.innerHTML = '';
+
+            // Add new rows with updated data
+            data.results.forEach(function (device) {
+                addRow(table, tableHeader, device);
+            });
+
+            var headerRow = tableHeader.insertRow();
+            var labelCell = headerRow.insertCell();
+            labelCell.colSpan = data.header.length - 1;
+            labelCell.textContent = tableDescription;
+            labelCell.addEventListener('click', function() {
+                if (tableDescription === 'Printers') {
+                    printerTitleClicked(labelCell);
+                } else {
+                    impinjTitleClicked(labelCell);
                 }
-                return cell;
+            });
+
+            var timeCell = headerRow.insertCell();
+            timeCell.textContent = data.lastUpdate;
+            timeCell.addEventListener('click', function() {
+                if (tableDescription === 'Printers') {
+                    printerTimeClicked(timeCell);
+                } else {
+                    impinjTimeClicked(timeCell);
+                }
+            });
+
+            var headerRow = tableHeader.insertRow();
+            data.header.forEach(function (header) {
+                var cell = headerRow.insertCell();
+                cell.textContent = header;
+            });
+        }
+
+        function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event, tableDescription) {
+            var eventSource = new EventSource(url);
+            eventSource.onmessage = function (event) {
+                var data = JSON.parse(event.data);
+                addRowsOnMessage(addRow, table, tableHeader, tableDescription, data);
             }
-            function addMediaCell(row, status) {
-                var cell = row.insertCell();
-                cell.textContent = status === '' ? 'No Media' : status;
-                cell.style.backgroundColor = status === '' ? 'lightcoral' : '';
-                return cell;
-            }
-            function addRowsOnMessage(addRow, table, tableHeader, tableDescription, data) {
-                // Clear existing rows
-                table.innerHTML = '';
-                tableHeader.innerHTML = '';
-                // Add new rows with updated data
-                data.results.forEach(function (device) {
-                    //console.log('onmessage: device %s', device);
-                    addRow(table, tableHeader, device);
-                });
-                var headerRow = tableHeader.insertRow();
-                var labelCell = headerRow.insertCell();
-                console.dir(data.header);
-                labelCell.colSpan = data.header.length -1;
-                //console.log('onmessage: colSpan: %s', labelCell.colSpan);
-                //labelCell.textContent = 'Devices';
-                labelCell.textContent = tableDescription;
-                headerRow.insertCell().textContent = data.lastUpdate;
-                var headerRow = tableHeader.insertRow();
-                data.header.forEach(function (header) {
-                    var cell = headerRow.insertCell();
-                    cell.textContent = header;
-                });
-            }
-            function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event, tableDescription){
-                var eventSource = new EventSource(url);
-                eventSource.onmessage = function (event) {
-                    // Parse JSON data from the event
-                    var data = JSON.parse(event.data);
-                    addRowsOnMessage(addRow, table, tableHeader, tableDescription, data);
-                    }
-                return eventSource;
-            }
-        """
+            return eventSource;
+        }
+
+        function printerTitleClicked(cell) {
+            sendPost(cell, '/printerTitleClicked', {});
+        }
+
+        function printerTimeClicked(cell) {
+            sendPost(cell, '/printerTimeClicked', {});
+        }
+
+        function impinjTitleClicked(cell) {
+            sendPost(cell, '/impinjTitleClicked', {});
+        }
+
+        function impinjTimeClicked(cell) {
+            sendPost(cell, '/impinjTimeClicked', {});
+        }
+    """
+
+
 
 #class EventListener(Script):
 
@@ -227,93 +263,89 @@ class TableRowListener(Script):
 
 class PrintersTableListener(TableRowListener):
     _addRow = """
-                // Function to add device data to the table
-                function printerAddRow(table, tableheader, device) {
-                    console.log('printerAddRow: %s', device);
-                    //console.dir(device);
-                    //console.log('printerAddRow: name: %s, status: %s, media: %s enabled: %s', device.name, device.status, device.media, device.enabled);
-                    var row = table.insertRow();
+        // Function to add device data to the table
+        function printerAddRow(table, tableheader, device) {
+            console.log('printerAddRow: %s', device);
+            var row = table.insertRow();
 
-                    addCell(row, device.name);
-                    var addressCell = row.insertCell();
-                    var addressLink = document.createElement('a');
-                    addressLink.href = 'http://' + device.address;
-                    addressLink.textContent = device.address;
-                    addressLink.target = '_blank';
-                    addressCell.appendChild(addressLink);
+            addCell(row, device.name);
+            var addressCell = row.insertCell();
+            var addressLink = document.createElement('a');
+            addressLink.href = 'http://' + device.address;
+            addressLink.textContent = device.address;
+            addressLink.target = '_blank';
+            addressCell.appendChild(addressLink);
 
-                    addStatusCell(row, device.status);
-                    addMediaCell(row, device.media);
-                    addCell(row, device.SysUpTime);
+            addStatusCell(row, device.status);
+            addMediaCell(row, device.media);
+            addCell(row, device.SysUpTime);
 
-                    leftCell = addEnabledCell(row, device.left);
-                    centerCell = addEnabledCell(row, device.center);
-                    rightCell = addEnabledCell(row, device.right);
+            leftCell = addEnabledCell(row, device.left);
+            centerCell = addEnabledCell(row, device.center);
+            rightCell = addEnabledCell(row, device.right);
 
-                    row.cells[0].title = device.tooltip0;
-                    row.cells[1].title = 'Click to open device Web Adminstration Page';
+            row.cells[0].title = device.tooltip0;
+            row.cells[1].title = 'Click to open device Web Adminstration Page';
 
-                    addCell(row, device.stats);
-                    addLastSeenCell(row, device.lastSeen);
+            addCell(row, device.stats);
+            addLastSeenCell(row, device.lastSeen);
 
-                    // Add event listener to "Enabled" cell
-                    leftCell.addEventListener('click', function () {
-                        sendPost(leftCell, '/updatePrinterStatus', { id: device.id, queue: 'left', enabled: !device.left }); });
-                    centerCell.addEventListener('click', function () {
-                        sendPost(centerCell, '/updatePrinterStatus', { id: device.id, queue: 'center', enabled: !device.center }); });
-                    rightCell.addEventListener('click', function () {
-                        sendPost(rightCell, '/updatePrinterStatus', { id: device.id, queue: 'right', enabled: !device.right }); });
+            leftCell.addEventListener('click', function () {
+                sendPost(leftCell, '/updatePrinterStatus', { id: device.id, queue: 'left', enabled: !device.left });
+            });
+            centerCell.addEventListener('click', function () {
+                sendPost(centerCell, '/updatePrinterStatus', { id: device.id, queue: 'center', enabled: !device.center });
+            });
+            rightCell.addEventListener('click', function () {
+                sendPost(rightCell, '/updatePrinterStatus', { id: device.id, queue: 'right', enabled: !device.right });
+            });
 
-                    // Add event listener to row
-                    row.addEventListener('click', function () {
-                        var printerName = device.id;
-                        sendPost(row, '/printerClicked', { 'printer_name': printerName });
-                    });
-                }
-
+            row.addEventListener('click', function () {
+                var printerName = device.id;
+                sendPost(row, '/printerClicked', { 'printer_name': printerName });
+            });
+        }
     """
-    def __init__(self, tableName=None, scriptName=None, addRow=None,):
-        super(PrintersTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='Printers' )
+
+    def __init__(self, tableName=None, scriptName=None, addRow=None):
+        super(PrintersTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='Printers')
+
 class ImpinjsTableListener(TableRowListener):
     _addRow = """
-                // Function to add device data to the table
-                function impinjAddRow(table, tableheader, device) {
-                    console.log('impinjAddRow: %s', device);
-                    //console.dir(device);
-                    //console.log('impinjAddRow: name: %s, status: %s, media: %s enabled: %s', device.name, device.status, device.media, device.enabled);
-                    var row = table.insertRow();
+        // Function to add device data to the table
+        function impinjAddRow(table, tableheader, device) {
+            console.log('impinjAddRow: %s', device);
+            var row = table.insertRow();
 
-                    addCell(row, device.name);
-                    var addressCell = row.insertCell();
-                    var addressLink = document.createElement('a');
-                    addressLink.href = 'http://' + device.address;
-                    addressLink.textContent = device.address;
-                    addressLink.target = '_blank';
-                    addressCell.appendChild(addressLink);
+            addCell(row, device.name);
+            var addressCell = row.insertCell();
+            var addressLink = document.createElement('a');
+            addressLink.href = 'http://' + device.address;
+            addressLink.textContent = device.address;
+            addressLink.target = '_blank';
+            addressCell.appendChild(addressLink);
 
-                    addCell(row, device.status);
-                    addCell(row, device.SysUpTime);
-                    enabledCell = addEnabledCell(row, device.enabled);
+            addCell(row, device.status);
+            addCell(row, device.SysUpTime);
+            enabledCell = addEnabledCell(row, device.enabled);
 
-                    addLastSeenCell(row, device.lastSeen);
+            addLastSeenCell(row, device.lastSeen);
 
-                    row.cells[0].title = device.tooltip0;
-                    row.cells[1].title = 'Click to open device Web Adminstration Page';
+            row.cells[0].title = device.tooltip0;
+            row.cells[1].title = 'Click to open device Web Adminstration Page';
 
-                    // Add event listener to "Enabled" cell
-                    enabledCell.addEventListener('click', function () {
-                        sendPost(enabledCell, '/updateImpinjStatus', { id: device.id, enabled: !device.enabled });
-                    });
+            enabledCell.addEventListener('click', function () {
+                sendPost(enabledCell, '/updateImpinjStatus', { id: device.id, enabled: !device.enabled });
+            });
 
-                    // Add event listener to row
-                    row.addEventListener('click', function () {
-                        // Send impinj name to server
-                        var impinjName = device.id;
-                        sendPost(row, '/impinjClicked', { 'impinj_name': impinjName });
-                    });
-                }
+            row.addEventListener('click', function () {
+                var impinjName = device.id;
+                sendPost(row, '/impinjClicked', { 'impinj_name': impinjName });
+            });
+        }
     """
-    def __init__(self, tableName=None, scriptName=None, addRow=None,):
+
+    def __init__(self, tableName=None, scriptName=None, addRow=None):
         super(ImpinjsTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='RFID Readers')
 
 class TestPage:

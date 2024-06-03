@@ -33,6 +33,31 @@ class FlaskServer(Thread):
         return str(testpage)
 
     # SSE endpoint to stream printer updates
+    #@app1.route('/printerTitleClicked')
+    def printerTitleClicked(self):
+        log('printerTitleClicked: request: %s' % (request), )
+        return 'OK'
+    # SSE endpoint to stream printer updates
+    #@app1.route('/printerTimeClicked')
+    def printerTimeClicked(self):
+        log('printerTimeClicked: request: %s' % (request), )
+        self.printerResetEvent.set()
+        self.printers = {}
+        return 'OK'
+    # SSE endpoint to stream impinj updates
+    #@app1.route('/impinjTitleClicked')
+    def impinjTitleClicked(self):
+        log('impinjTitleClicked: request: %s' % (request), )
+        return 'OK'
+    # SSE endpoint to stream impinj updates
+    #@app1.route('/impinjTimeClicked')
+    def impinjTimeClicked(self):
+        log('impinjTimeClicked: request: %s' % (request), )
+        self.impinjResetEvent.set()
+        self.impinjs = {}
+        return 'OK'
+
+    # SSE endpoint to stream printer updates
     #@app1.route('/printer_updates')
     def impinj_updates(self):
         if time.time() - self.lastImpinjsUpdate > 10:
@@ -90,7 +115,7 @@ class FlaskServer(Thread):
 
         #log('Printer clicked: request: %s' % (request), ) 
         printer_name = data.get('printer_name')
-        #log('printerClicked[%s]' % (printer_name), )
+        log('printerClicked[%s] request: %s' % (printer_name, request), )
         #log('data:', data, )
         # Handle the click event here
         # For example, you could trigger some action or return a response to the client
@@ -139,8 +164,12 @@ class FlaskServer(Thread):
             self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'] if enabled else None)
         return 'OK'
 
-    def __init__(self, impinjTCPProxy=None, qlmuxd=None, **kwargs):
+    def __init__(self, changeEvent=None, printerResetEvent=None, impinjResetEvent=None,
+                 impinjTCPProxy=None, qlmuxd=None, **kwargs):
         self.impinjTCPProxy = impinjTCPProxy
+        self.printerResetEvent = printerResetEvent
+        self.impinjResetEvent = impinjResetEvent
+        self.changeEvent = changeEvent
         self.qlmuxd = qlmuxd
         self.semaphore = Semaphore()
         self.app1 = Flask(__name__)
@@ -159,6 +188,12 @@ class FlaskServer(Thread):
         self.app1.add_url_rule('/impinjClicked', 'impinjClicked', self.impinjClicked, methods=['POST'])
         self.app1.add_url_rule('/updateImpinjStatus', 'updateImpinjStatus', self.updateImpinjStatus, methods=['POST'])
         self.app1.add_url_rule('/updatePrinterStatus', 'updatePrinterStatus', self.updatePrinterStatus, methods=['POST'])
+
+        self.app1.add_url_rule('/printerTitleClicked', 'printerTitleClicked', self.printerTitleClicked, methods=['POST'])
+        self.app1.add_url_rule('/printerTimeClicked', 'printerTimeClicked', self.printerTimeClicked, methods=['POST'])
+        self.app1.add_url_rule('/impinjTitleClicked', 'impinjTitleClicked', self.impinjTitleClicked, methods=['POST'])
+        self.app1.add_url_rule('/impinjTimeClicked', 'impinjTimeClicked', self.impinjTimeClicked, methods=['POST'])
+
         super(FlaskServer, self).__init__()
         #self.semaphore = Semaphore()
         self.impinjResults = []

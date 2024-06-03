@@ -25,10 +25,14 @@ from .utils import log
 
 
 class RaceProxy(Thread):
-    def __init__(self, stopEvent=None, changeEvent=None, snmpDiscoveredQueue=None, flaskServer=None, qlmuxd=None):
+    def __init__(self, stopEvent=None, changeEvent=None,
+                             printerResetEvent=None, impinjResetEvent=None,
+                 snmpDiscoveredQueue=None, flaskServer=None, qlmuxd=None):
         super().__init__()
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
+        self.printerResetEvent = printerResetEvent
+        self.impinjResetEvent = impinjResetEvent
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
         self.flaskServer = flaskServer
         self.qlmuxd = qlmuxd
@@ -47,6 +51,14 @@ class RaceProxy(Thread):
                 #flaskServer.shutdown()
                 #log('flaskServer shutdown', )
                 break
+            if self.printerResetEvent.is_set():
+                time.sleep(2)
+                self.printers = {}
+                self.printerResetEvent.clear()
+            if self.impinjResetEvent.is_set():
+                time.sleep(2)
+                self.impinjs = {}
+                self.impinjResetEvent.clear()   
             while not self.snmpDiscoveredQueue.empty():
                 #hostaddr, hostname, sysdescr = snmpDiscoveredQueue.get()
                 hostaddr, hostname, sysdescr, macAddress, serialNumber = self.snmpDiscoveredQueue.get()
@@ -57,7 +69,7 @@ class RaceProxy(Thread):
                         if hostaddr not in self.impinjs:
                             self.impinjs[hostaddr] = ImpinjSNMPThread(
                                 hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
-                                changeEvent=self.changeEvent, stopEvent=self.stopEvent,
+                                changeEvent=self.changeEvent, stopEvent=self.impinjResetEvent,
                                 impinjStatusQueue=self.impinjStatusQueue)
                             self.impinjs[hostaddr].start()
                         else:
@@ -69,7 +81,7 @@ class RaceProxy(Thread):
                         if hostaddr not in self.printers:
                             self.printers[hostaddr] = PrinterSNMPThread(
                                 hostname=hostname, hostaddr=hostaddr, sysdescr=sysdescr, 
-                                changeEvent=self.changeEvent, stopEvent=self.stopEvent,
+                                changeEvent=self.changeEvent, stopEvent=self.printerResetEvent,
                                 printerStatusQueue=self.printerStatusQueue)
                             self.printers[hostaddr].start()
                         else:
@@ -112,6 +124,11 @@ def raceproxymain():
     stopEvent.clear()
     sigintEvent.clear()
 
+    printerResetEvent = Event()
+    printerResetEvent.clear()
+    impinjResetEvent = Event()
+    impinjResetEvent.clear()
+
     # create the queues
     snmpDiscoveredQueue = Queue()        # queue for SNMP discovery
 
@@ -120,6 +137,8 @@ def raceproxymain():
     def sigintHandler(signal, frame):
         log('SIGINT received %s' % (signal,), )
         stopEvent.set()
+        printerResetEvent.set()
+        impinjResetEvent.set()
         changeEvent.set()
 
     signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
@@ -128,7 +147,8 @@ def raceproxymain():
 
     impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
     qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
-    flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, qlmuxd=qlmuxd)
+    flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, qlmuxd=qlmuxd, 
+                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent)
 
     threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
     #log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
@@ -141,7 +161,9 @@ def raceproxymain():
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
-    threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, snmpDiscoveredQueue=snmpDiscoveredQueue, 
+    threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, 
+                             printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
+                             snmpDiscoveredQueue=snmpDiscoveredQueue, 
                              flaskServer=flaskServer, qlmuxd=qlmuxd)
 
     [v.start() for k, v in threads.items()]
