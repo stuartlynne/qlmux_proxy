@@ -148,20 +148,21 @@ class DiscoveryThread(Thread, ):
                         case self.SerialNumber:
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}]SERIALNUMBER {val}', )
                             serialNumber = val
-                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] SERIALNUMBER {serialNumber}', )
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] SERIALNUMBER {serialNumber}', )
                         case self.MACAddress:
                             macAddress = val.prettyPrint()
-                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] MACADDRESS {macAddress}', )
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] MACADDRESS {macAddress}', )
                         case self.hostname:
                             hostname = val.prettyPrint()
-                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] HOSTNAME {hostname}', )
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] HOSTNAME {hostname}', )
                         case self.sysDescr:
                             sysDescr = val.prettyPrint()
-                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] SYSDESCR {sysDescr}', )
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] SYSDESCR {sysDescr}', )
                         case _:
-                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] oid unknown: %s' % oid, )
+                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] oid unknown: %s' % oid, )
+                            pass
 
-                    log(f"cbRecvFun[{tav}:{transportAddress[0]}] {oid.prettyPrint()} = {val.prettyPrint()}", )
+                    #log(f"cbRecvFun[{tav}:{transportAddress[0]}] {oid.prettyPrint()} = {val.prettyPrint()}", )
                 if hostname or sysDescr:
                     self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
                     self.changeEvent.set()
