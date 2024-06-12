@@ -157,7 +157,7 @@ class DiscoveryThread(Thread, ):
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}] HOSTNAME {hostname}', )
                         case self.sysDescr:
                             sysDescr = val.prettyPrint()
-                            #log(f'cbRecvFun[{tav}:{transportAddress[0]}] SYSDESCR {sysDescr}', )
+                            log(f'cbRecvFun[{tav}:{transportAddress[0]}] SYSDESCR {sysDescr}', )
                         case _:
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}] oid unknown: %s' % oid, )
                             pass

@@ -52,10 +52,12 @@ class RaceProxy(Thread):
                 #log('flaskServer shutdown', )
                 break
             if self.printerResetEvent.is_set():
+                log('printerResetEvent', )
                 time.sleep(2)
                 self.printers = {}
                 self.printerResetEvent.clear()
             if self.impinjResetEvent.is_set():
+                log('impinjResetEvent', )
                 time.sleep(2)
                 self.impinjs = {}
                 self.impinjResetEvent.clear()   

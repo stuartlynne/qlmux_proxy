@@ -188,6 +188,7 @@ class PrinterSNMPThread(SNMPThread, ):
                 break
             sleep(1)
             pass
+        log('PrinterSNMPThread.run[%s:%s] exiting' % (self.hostname, self.hostaddr), )
 
     #def status(self):
     #    return self.snmpStatus
@@ -234,7 +235,7 @@ class ImpinjSNMPThread(SNMPThread, ):
 
     def run(self):
         while not self.stopEvent.is_set():
-            #log('ImpinjSNMPThread.run: %s' % (self.hostname,), )
+            log('ImpinjSNMPThread.run: %s' % (self.hostname,), )
 
             oidList = self.info_impinj_oids if self.infoFlag else self.status_impinj_oids
             oids = [oid for oid, name in oidList]
@@ -282,6 +283,7 @@ class ImpinjSNMPThread(SNMPThread, ):
                 break
             sleep(4)
             pass
+        log('ImpinjSNMPThread.run[%s:%s] exiting' % (self.hostname, self.hostaddr), )
 
     #def status(self):
     #    return self.snmpStatus
