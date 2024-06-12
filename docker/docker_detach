@@ -11,6 +11,7 @@ docker run \
 	--publish 5000:5000 \
 	--publish 161:161/udp \
 	--restart always \
+	--logging-opt max-size=10m max-file=3 \
 	--env PYTHONUNBUFFERED=1 \
 	-v /etc/localtime:/etc/localtime:ro \
 	-t qlmux_proxy 
