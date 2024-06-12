@@ -106,7 +106,7 @@ built-in web status page.
 
 The Web Status page is available at http://localhost:9180/status. It shows the status of the printers and RFID readers
 
-![Web Status Page](images/web_status.png)
+![Web Status Page](imgs/web_status.png)
 
 
 ## Swapping Printers
