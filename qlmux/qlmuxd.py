@@ -145,8 +145,9 @@ class QLMuxd(Thread):
             #log('QLMuxd: printers: %s' % (self.Printers.keys(),))
             #for i, (p, v) in enumerate(self.Printers.items()):
             #    log('QLMuxd[%d:%s] %s' % (i, p, v))
-            for i, (p, v) in enumerate(self.Pools.items()):
-                log('QLMuxd[%d] pool: %s' % (i, v))
+            if False:
+                for i, (p, v) in enumerate(self.Pools.items()):
+                    log('QLMuxd[%d] pool: %s' % (i, v))
 
             if self.changeEvent.is_set():
                 log('QLMuxd: changeEvent is set')

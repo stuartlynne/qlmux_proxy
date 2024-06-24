@@ -5,6 +5,8 @@ import traceback
 from yattag import Doc, indent
 from .utils import log
 
+from .miscfunctions import Script, MiscFunctions
+from .tables import TableRowListener, TitleTableListener, ImpinjsTableListener, PrintersTableListener
 
 class HtmlPage:
     def __init__(self, title, apis=None, scripts=None, head=None, elements=None, testpage=None):
@@ -53,9 +55,9 @@ class Table:
         doc, tag, text = Doc().tagtext()
         with tag('table', id=self.id, klass='table table-striped table-bordered table-hover'):
             with tag('thead', id=f"{self.id}-header",): 
-                doc.asis('<!-- Table header will be dynamically added here -->')
+                doc.asis('')
             with tag('tbody', id=f"{self.id}-body",): 
-                doc.asis('<!-- Table body will be dynamically added here -->')
+                doc.asis('')
             #with tag('tr'):
             #    for column in self.columns:
             #        with tag('th'):
@@ -76,7 +78,7 @@ class Link:
     def __str__(self):
         doc, tag, text = Doc().tagtext()
         with tag('link', href=self.href, rel='stylesheet'):
-            text(self.text)
+            doc.asis(self.text)
         return indent(doc.getvalue())
 
 class Style:
@@ -87,266 +89,11 @@ class Style:
     def __str__(self):
         doc, tag, text = Doc().tagtext()
         with tag('style', type=self.type):
-            text(self.text)
+            doc.asis(self.text)
         return indent(doc.getvalue())
-
-class Script:
-    _src = None
-    _text = None
-    def __init__(self, src=None, text=None):
-        self.src = self._src if src is None else src 
-        self.text = self._text if text is None else text
-
-    def __str__(self):
-        doc, tag, text = Doc().tagtext()
-        if self.src:
-            with tag('src', src=self.src):
-                pass
-        else:
-            with tag('script', ):
-                if self.text:
-                    text(self.text)
-        return indent(doc.getvalue())   
-
-class MiscFunctions(Script):
-    _text = """
-        // Send HTTP request to update server with new status
-        function sendPost(cell, url, data) {
-            console.log('sendPost: %s', url);
-            console.dir(data);
-            cell.style.backgroundColor = 'lightblue';
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', url, true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify(data));
-            setTimeout(function () { cell.style.backgroundColor = ''; }, 4000);
-        }
-
-        function addCell(row, text) {
-            var cell = row.insertCell();
-            cell.textContent = text;
-        }
-
-        // Set enabled/disabled status for cell, and color background
-        function setEnabled(cell, enabled) {
-            cell.textContent = enabled ? 'Enabled' : 'Disabled';
-            cell.style.backgroundColor = enabled ? 'lightgreen' : '';
-        }
-
-        function addEnabledCell(row, enabled) {
-            var cell = row.insertCell();
-            setEnabled(cell, enabled);
-            return cell;
-        }
-
-        function addLastSeenCell(row, lastSeen) {
-            var cell = row.insertCell();
-            cell.textContent = lastSeen 
-            if (lastSeen.includes('10s')) {
-                cell.style.backgroundColor = '';
-            } else {
-                cell.style.backgroundColor = 'lightcoral';
-            }
-        }
-
-        function addStatusCell(row, status) {
-            var cell = row.insertCell();
-            cell.textContent = status;
-            switch(status) {
-                case 'READY':
-                    cell.style.backgroundColor = '';
-                    break;
-                case 'BUSY':
-                    cell.style.backgroundColor = 'lightgreen';
-                    break;
-                default:
-                    cell.style.backgroundColor = 'lightcoral';
-                    break;
-            }
-            return cell;
-        }
-
-        function addMediaCell(row, status) {
-            var cell = row.insertCell();
-            cell.textContent = status === '' ? 'No Media' : status;
-            cell.style.backgroundColor = status === '' ? 'lightcoral' : '';
-            return cell;
-        }
-
-        function addRowsOnMessage(addRow, table, tableHeader, tableDescription, data) {
-            // Clear existing rows
-            table.innerHTML = '';
-            tableHeader.innerHTML = '';
-
-            // Add new rows with updated data
-            data.results.forEach(function (device) {
-                addRow(table, tableHeader, device);
-            });
-
-            var headerRow = tableHeader.insertRow();
-            var labelCell = headerRow.insertCell();
-            labelCell.colSpan = data.header.length - 1;
-            labelCell.textContent = tableDescription;
-            labelCell.addEventListener('click', function() {
-                if (tableDescription === 'Printers') {
-                    printerTitleClicked(labelCell);
-                } else {
-                    impinjTitleClicked(labelCell);
-                }
-            });
-
-            var timeCell = headerRow.insertCell();
-            timeCell.textContent = data.lastUpdate;
-            timeCell.addEventListener('click', function() {
-                if (tableDescription === 'Printers') {
-                    printerTimeClicked(timeCell);
-                } else {
-                    impinjTimeClicked(timeCell);
-                }
-            });
-
-            var headerRow = tableHeader.insertRow();
-            data.header.forEach(function (header) {
-                var cell = headerRow.insertCell();
-                cell.textContent = header;
-            });
-        }
-
-        function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event, tableDescription) {
-            var eventSource = new EventSource(url);
-            eventSource.onmessage = function (event) {
-                var data = JSON.parse(event.data);
-                addRowsOnMessage(addRow, table, tableHeader, tableDescription, data);
-            }
-            return eventSource;
-        }
-
-        function printerTitleClicked(cell) {
-            sendPost(cell, '/printerTitleClicked', {});
-        }
-
-        function printerTimeClicked(cell) {
-            sendPost(cell, '/printerTimeClicked', {});
-        }
-
-        function impinjTitleClicked(cell) {
-            sendPost(cell, '/impinjTitleClicked', {});
-        }
-
-        function impinjTimeClicked(cell) {
-            sendPost(cell, '/impinjTimeClicked', {});
-        }
-    """
-
 
 
 #class EventListener(Script):
-
-class TableRowListener(Script):
-    _addRow = ''
-    def __init__(self, tableName=None, scriptName=None, addRow=None, src=None, text=None, tableDescription=None):
-        super(TableRowListener, self).__init__(src=None, text=None, )
-        #log('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), )
-        self.tableName = tableName
-        self.scriptName = scriptName
-        self.tableDescription = tableDescription if tableDescription else 'Devices'
-        self.text = f"""
-            document.addEventListener('DOMContentLoaded', function () {{
-                var table = document.getElementById('{self.tableName}').getElementsByTagName('tbody')[0];
-                var tableHeader = document.getElementById('{self.tableName}').getElementsByTagName('thead')[0];
-                var eventSource = addEventSource('{self.scriptName}', {addRow}, addRowsOnMessage, table, tableHeader, event,
-                '{self.tableDescription}');
-            }});
-            {self._addRow}
-            """
-        #log('TableRowListener: %s' %(self.text), )
-
-class PrintersTableListener(TableRowListener):
-    _addRow = """
-        // Function to add device data to the table
-        function printerAddRow(table, tableheader, device) {
-            console.log('printerAddRow: %s', device);
-            var row = table.insertRow();
-
-            addCell(row, device.name);
-            var addressCell = row.insertCell();
-            var addressLink = document.createElement('a');
-            addressLink.href = 'http://' + device.address;
-            addressLink.textContent = device.address;
-            addressLink.target = '_blank';
-            addressCell.appendChild(addressLink);
-
-            addStatusCell(row, device.status);
-            addMediaCell(row, device.media);
-            addCell(row, device.SysUpTime);
-
-            leftCell = addEnabledCell(row, device.left);
-            centerCell = addEnabledCell(row, device.center);
-            rightCell = addEnabledCell(row, device.right);
-
-            row.cells[0].title = device.tooltip0;
-            row.cells[1].title = 'Click to open device Web Adminstration Page';
-
-            addCell(row, device.stats);
-            addLastSeenCell(row, device.lastSeen);
-
-            leftCell.addEventListener('click', function () {
-                sendPost(leftCell, '/updatePrinterStatus', { id: device.id, queue: 'left', enabled: !device.left });
-            });
-            centerCell.addEventListener('click', function () {
-                sendPost(centerCell, '/updatePrinterStatus', { id: device.id, queue: 'center', enabled: !device.center });
-            });
-            rightCell.addEventListener('click', function () {
-                sendPost(rightCell, '/updatePrinterStatus', { id: device.id, queue: 'right', enabled: !device.right });
-            });
-
-            row.addEventListener('click', function () {
-                var printerName = device.id;
-                sendPost(row, '/printerClicked', { 'printer_name': printerName });
-            });
-        }
-    """
-
-    def __init__(self, tableName=None, scriptName=None, addRow=None):
-        super(PrintersTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='Printers')
-
-class ImpinjsTableListener(TableRowListener):
-    _addRow = """
-        // Function to add device data to the table
-        function impinjAddRow(table, tableheader, device) {
-            console.log('impinjAddRow: %s', device);
-            var row = table.insertRow();
-
-            addCell(row, device.name);
-            var addressCell = row.insertCell();
-            var addressLink = document.createElement('a');
-            addressLink.href = 'http://' + device.address;
-            addressLink.textContent = device.address;
-            addressLink.target = '_blank';
-            addressCell.appendChild(addressLink);
-
-            addCell(row, device.status);
-            addCell(row, device.SysUpTime);
-            enabledCell = addEnabledCell(row, device.enabled);
-
-            addLastSeenCell(row, device.lastSeen);
-
-            row.cells[0].title = device.tooltip0;
-            row.cells[1].title = 'Click to open device Web Adminstration Page';
-
-            enabledCell.addEventListener('click', function () {
-                sendPost(enabledCell, '/updateImpinjStatus', { id: device.id, enabled: !device.enabled });
-            });
-
-            row.addEventListener('click', function () {
-                var impinjName = device.id;
-                sendPost(row, '/impinjClicked', { 'impinj_name': impinjName });
-            });
-        }
-    """
-
-    def __init__(self, tableName=None, scriptName=None, addRow=None):
-        super(ImpinjsTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, tableDescription='RFID Readers')
 
 class TestPage:
         
@@ -362,14 +109,16 @@ class TestPage:
             '<!-- Styles -->', Style('text/css', 'thead { font-weight: bold; color: white; background-color: #007bff; }'),
         ]
 
+        title = Table('MyTable0', id='title-table', columns=[], rows=[],)
         printers = Table('MyTable1', id='printers-table', columns=[], rows=[],)
         impinjs = Table('MyTable2', id='impinj-table', columns=[], rows=[],)
 
         misc = MiscFunctions()
+        titleListener = TitleTableListener(tableName='title-table', scriptName='/title_updates', addRow='titleAddRow')
         printerListener = PrintersTableListener(tableName='printers-table', scriptName='/printer_updates', addRow='printerAddRow')
         impinjListener = ImpinjsTableListener(tableName='impinj-table', scriptName='/impinj_updates', addRow='impinjAddRow')
 
-        page = HtmlPage('Printers Status', apis=apis, elements=[printers, impinjs], scripts=[misc, printerListener, impinjListener, ], testpage=None)
+        page = HtmlPage('Printers Status', apis=apis, elements=[title, printers, impinjs], scripts=[misc, titleListener, printerListener, impinjListener, ], testpage=None)
         return str(page)
         #doc, tag, text = Doc().tagtext()
         #with tag('link', href=self.href, rel='stylesheet'):

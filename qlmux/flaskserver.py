@@ -9,6 +9,7 @@ import signal
 import traceback
 from threading import Thread, Event, Semaphore
 from queue import Queue
+from deepdiff import DeepDiff
 # apt install python3-openssl
 #from OpenSSL import SSL
 import ssl
@@ -20,6 +21,7 @@ from flask.logging import default_handler
 from .htmlpage import TestPage
 from .utils import log
 from .printer import PrinterQueue
+from .pythonproxy import ImpinjTCPProxy
 
 
 
@@ -58,34 +60,50 @@ class FlaskServer(Thread):
         return 'OK'
 
     # SSE endpoint to stream printer updates
-    #@app1.route('/printer_updates')
-    def impinj_updates(self):
-        if time.time() - self.lastImpinjsUpdate > 10:
-            self.setImpinjResults()
+    #@app1.route('/title_updates')
+    def title_updates(self):
         with self.semaphore:
+            data = 'data: {}\n\n'.format(json.dumps({
+                'header': self.titleHeader, 
+                'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                'replaceTable': True,
+            }, ))
+        log('title_updates: data: %s' % (data), )
+        return Response(data, content_type='text/event-stream')
+
+    # SSE endpoint to stream rfid reader updates
+    #@app1.route('/impinj_updates')
+    def impinj_updates(self):
+        #if time.time() - self.lastImpinjsUpdate > 10:
+        #    self.setImpinjResults()
+        with self.semaphore:
+            replaceTable = self.setImpinjResults()
             data = 'data: {}\n\n'.format(json.dumps({
                 'header': self.impinjHeader, 
                 'results': self.impinjResults, 
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                'replaceTable': replaceTable,
             }, ))
 
-        #log('impinj_updates:', data, )
+        log('impinj_updates: Response: %s' % (data) )
         return Response(data, content_type='text/event-stream')
 
 
     # SSE endpoint to stream printer updates
     #@app1.route('/printer_updates')
     def printer_updates(self):
-        if time.time() - self.lastPrintersUpdate > 10:
-            self.setPrinterResults()
+        #if time.time() - self.lastPrintersUpdate > 10:
+        #    self.setPrinterResults()
         with self.semaphore:
+            replaceTable = self.setPrinterResults()
             data = 'data: {}\n\n'.format(json.dumps({
                 'header': self.printerHeader, 
                 'results': self.printerResults, 
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                'replaceTable': replaceTable,
             }, ))
 
-        #log('printer_updates:', data, )
+        log('printer_updates: Response: %s' %(data), )
         return Response(data, content_type='text/event-stream')
 
     # Route to handle impinj clicks
@@ -121,6 +139,30 @@ class FlaskServer(Thread):
         # For example, you could trigger some action or return a response to the client
         return 'OK'
 
+    # Route to update printer queue
+    def updatePrinterQueue(self):
+        try:
+            data = request.get_json()
+        except NameError:
+            log('FlaskServer.updatePrinterQueue: Printer clicked: no request', ) 
+            log('FlaskServer.updatePrinterQueue: Update printer status: request: %s' % (request), )
+            return 'OK'
+        log('FlaskServer.updatePrinterQueue: data: %s' % data, )
+        queue = data['queue']
+        id = data['id']
+        queue = data['queue']
+        log('FlaskServer.updatePrinterQueue[%s] queue: %s AAAA' % (id, queue), )
+        #for k in ['left', 'center', 'right', 'disabled']:
+        #    self.printers[id][k] = False
+        self.printers[id]['queue'] = queue
+        if queue:
+            self.qlmuxd.setPrinterQueue(id, PrinterQueue[queue.upper()])
+        else:
+            self.qlmuxd.setPrinterQueue(id, PrinterQueue.DISABLED)
+        #self.setPrinterResults()
+        log('FlaskServer.updatePrinterQueue: %s, queue: %s' % (id, queue, ), )
+        return 'OK'
+
     # Route to update printer status
     def updatePrinterStatus(self):
         try:
@@ -129,20 +171,42 @@ class FlaskServer(Thread):
             log('FlaskServer.updatePrinterStatus: Printer clicked: no request', ) 
             log('FlaskServer.updatePrinterStatus: Update printer status: request: %s' % (request), )
             return 'OK'
-        queue = data['queue']
+        log('FlaskServer.updatePrinterStatus: data: %s' % data, )
+        queue = data['queue'].lower()
         id = data['id']
         enabled = data['enabled']
-        #log('FlaskServer.updatePrinterStatus[%s] enabled: %s AAAA' % (id, enabled), )
-        for k in ['left', 'center', 'right']:
-            self.printers[id][k] = False
+        log('FlaskServer.updatePrinterStatus[%s] enabled: %s AAAA' % (id, enabled), )
+        #for k in ['left', 'center', 'right']:
+        #    self.printers[id][k] = False
         self.printers[id][queue] = enabled
+        self.printers[id]['queue'] = queue
+        log('FlaskServer.updatePrinterStatus[%s] %s' % (id, self.printers[id]), )
         if enabled:
             self.qlmuxd.setPrinterQueue(id, PrinterQueue[queue.upper()])
         else:
             self.qlmuxd.setPrinterQueue(id, PrinterQueue.DISABLED)
-        self.setPrinterResults()
+        #self.setPrinterResults()
         #log('FlaskServer.updatePrinterStatus: %s, queue: %s enabled: %s' % (id, queue, enabled), )
         return 'OK'
+
+
+    # Set the listen address for an Impinj reader, if the address is already in use, assign a new one
+    # to the existing reader
+    def setImpinjListenAddress(self, id, proxyPort):
+        listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
+        log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
+        for k, v in self.impinjs.items():
+            if v['proxyPort'] == proxyPort:
+                v['proxyPort'] = 'Disabled'
+        listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
+        log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
+        if proxyPort in listening:
+            k = listening.pop(proxyPort)
+            available = [ '%d' % i for i in range(5084, 5087) if i not in listening ]  
+            self.impinjs[k]['proxyPort'] = available[0] if available else 'Disabled'
+            log('FlaskServer.setImpinjListenAddress[%s]: proxyPort: %s already in use, assigning %s' % (id, proxyPort, self.impinjs[k]['proxyPort']), )
+        self.impinjs[id]['proxyPort'] = proxyPort
+        log('FlaskServer.setImpinjListenAddress[%s]: proxyPort: %s' % (id, proxyPort), )
 
     def updateImpinjStatus(self):
         try:
@@ -152,21 +216,22 @@ class FlaskServer(Thread):
             log('FlaskSEver.updateImpinjStatus: Update Impinj status: request: %s' % (request), )
             return 'OK'
         id = data['id']
-        enabled = data['enabled']
-        log('updateImpinjStatus[%s]: enabled: %s AAAAA' % (id, enabled), )
-        for k, v in self.impinjs.items():
-            self.impinjs[k]['enabled'] = False
-        self.impinjs[id]['enabled'] = enabled
-        self.setImpinjResults()
+        proxyPort = data['proxyPort']
+        log('FlaskServer.updateImpinjStatus[%s]: proxyPort: %s' % (id, proxyPort), )
+        self.setImpinjListenAddress(id, proxyPort)
+        # XXX probably need to create/destroy the ImpinjTCPProxy's here
+
+
         #log('FlaskServer.updateImpinjStatus[%s] enabled: %s' % (id, enabled), )
         #log('FlaskServer.updateImpinjStatus[%s] %s' % (id, self.impinjs[id]), )
-        if self.impinjTCPProxy:
-            self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'] if enabled else None)
+        #if self.impinjTCPProxy:
+        #    self.impinjTCPProxy.change(target=self.impinjs[id]['hostaddr'] if enabled else None)
         return 'OK'
 
     def __init__(self, changeEvent=None, printerResetEvent=None, impinjResetEvent=None,
                  impinjTCPProxy=None, qlmuxd=None, **kwargs):
-        self.impinjTCPProxy = impinjTCPProxy
+        # XXX need to instantiate the ImpinjTCPProxy later for the individual RFID readers
+        #self.impinjTCPProxy = impinjTCPProxy
         self.printerResetEvent = printerResetEvent
         self.impinjResetEvent = impinjResetEvent
         self.changeEvent = changeEvent
@@ -182,12 +247,14 @@ class FlaskServer(Thread):
         wlog.setLevel(logging.ERROR)
 
         self.app1.add_url_rule('/', 'root', self.root)
+        self.app1.add_url_rule('/title_updates', 'title_updates', self.title_updates)
         self.app1.add_url_rule('/impinj_updates', 'impinj_updates', self.impinj_updates)
         self.app1.add_url_rule('/printer_updates', 'printer_updates', self.printer_updates)
         self.app1.add_url_rule('/printerClicked', 'printerClicked', self.printerClicked, methods=['POST'])
         self.app1.add_url_rule('/impinjClicked', 'impinjClicked', self.impinjClicked, methods=['POST'])
         self.app1.add_url_rule('/updateImpinjStatus', 'updateImpinjStatus', self.updateImpinjStatus, methods=['POST'])
         self.app1.add_url_rule('/updatePrinterStatus', 'updatePrinterStatus', self.updatePrinterStatus, methods=['POST'])
+        self.app1.add_url_rule('/updatePrinterQueue', 'updatePrinterQueue', self.updatePrinterQueue, methods=['POST'])
 
         self.app1.add_url_rule('/printerTitleClicked', 'printerTitleClicked', self.printerTitleClicked, methods=['POST'])
         self.app1.add_url_rule('/printerTimeClicked', 'printerTimeClicked', self.printerTimeClicked, methods=['POST'])
@@ -209,8 +276,9 @@ class FlaskServer(Thread):
         self.printers = {}
         self.lastPrintersUpdate = time.time()
         self.lastImpinjsUpdate = time.time()
-        self.impinjHeader = ['Name', 'Address', '', 'UpTime', 'Enabled', 'Last Seen', ]
-        self.printerHeader = ['Name', 'Address', 'Status', 'Media', 'UpTime', 'Left', 'Center', 'Right', 'Stats', 'Last Seen',]
+        self.titleHeader = ['Qlmux Proxy', '']
+        self.impinjHeader = ['RFID Reader', 'Address', 'UpTime', 'Select', 'RFID Proxy', 'Last Seen', ]
+        self.printerHeader = ['Printer', 'Address', 'Status', 'Media', 'UpTime', 'Select', 'Queue', 'Stats', 'Last Seen',]
         self.app = self.app1
         if False:
             #CERT_FILE = 'whiskey.local+5.pem' 
@@ -247,7 +315,7 @@ class FlaskServer(Thread):
 
     def setImpinjResults(self):
         # create the impinjResults list
-        self.impinjResults = []
+        self.newImpinjResults = []
         self.lastImpinjsUpdate = time.time()
         for i, (impinj, info) in enumerate(self.impinjs.items()):
             #log('FlaskServer.setImpinjResults[%d:%s]: info %s ' % (i, impinj, info), )
@@ -261,7 +329,7 @@ class FlaskServer(Thread):
             seenElapsed = time.time() - info.get('lastSeen', 0)
             #if seenElapsed > 10:
             #    log('FlaskServer.setImpinjResults[%d:%s]: seenElapsed: %s' % (i, impinj, seenElapsed), )
-            self.impinjResults.append({
+            self.newImpinjResults.append({
                 'id': impinj,
                 'name': hostname, 
                 'address': info.get('hostaddr',''),
@@ -269,24 +337,57 @@ class FlaskServer(Thread):
                 'status': info.get('Status',''),
                 'media': info.get('Media',''),
                 'enabled': info.get('enabled', False),
+                'proxyPort': info.get('proxyPort', 'Disabled'),
                 'SysUpTime': self.sysUpTime(info.get('SysUpTime', 0)),
                 'lastSeen': datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s',
                 })
 
-        #log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
+        diff = DeepDiff(self.impinjResults, self.newImpinjResults)
+        if len(diff):
+            log('FlaskServer.setImpinjResults: diff: %s' % diff, )
+            log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
+            self.impinjResults = self.newImpinjResults
+            return True
+        log('FlaskServer.setImpinjResults: no change', )
+        log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
+        return False
 
     # called by the main thread to update
     def impinjUpdate(self, impinjInfo=None):
         # update the impinjs dictionary
         #log('FlaskServer.impinjUpdate: impinjInfo: %s' % impinjInfo, )
+        listenAddresses = ['5084', '5085', '5086', '5087', 'Disabled', ]
         with self.semaphore:
             for i, (impinj, info) in enumerate(impinjInfo.items()):
                 if impinj not in self.impinjs:
-                    self.impinjs[impinj] = {}
-                    if len(self.impinjs) == 1:
-                        self.impinjs[impinj] = {'enabled': True, }
-                        self.impinjTCPProxy.change(target=info.get('hostaddr', None), )
-                        #log('FlaskServer.update[%d:%s]: impinj %s EMPTY' % (i, impinj, self.impinjs[impinj]), )
+                    listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
+                    log('FlaskServer.impinjUpdate: listening: %s' % listening, )
+                    impinjs = len(self.impinjs)
+                    addresses = len(listenAddresses)
+                    index = impinjs if impinjs < addresses else addresses - 1
+                    self.impinjs[impinj] = {'proxyPort': listenAddresses[index],}
+                    hostname = info.get('hostname', None).lower()
+                    log('FlaskServer.impinjUpdate[%d:%s]: impinj %s hostname: %s table: %s kiosk: %s' % 
+                        (i, impinj, self.impinjs[impinj], hostname, hostname.endswith('table'), hostname.endswith('kiosk')), )
+                    if hostname.endswith('table') and '5084' not in listening:
+                        log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 5084 for TABLE' % (i, impinj, self.impinjs[impinj]), )
+                        self.impinjs[impinj] = {'proxyPort': '5084', }
+                        continue
+                    if hostname.endswith('kiosk') and '5085' not in listening:
+                        log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 5085 for KIOSK' % (i, impinj, self.impinjs[impinj]), )
+                        self.impinjs[impinj] = {'proxyPort': '5085', }
+                        continue
+                    if '5084' not in listening:
+                        log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 5084' % (i, impinj, self.impinjs[impinj]), )
+                        self.impinjs[impinj] = {'proxyPort': '5084'}
+                        continue
+                    if '5085' not in listening:
+                        log('FlaskServer.update[%d:%s]: impinj %s 5085' % (i, impinj, self.impinjs[impinj]), )
+                        self.impinjs[impinj] = {'proxyPort': '5085'}
+                        continue
+                    log('FlaskServer.update[%d:%s]: impinj %s Disabled' % (i, impinj, self.impinjs[impinj]), )
+                    self.impinjs[impinj] = {'proxyPort': 'Disabled'}
+
                 self.impinjs[impinj]['lastSeen'] = time.time()
                 if info:
                     for j, (k, v) in enumerate(info.items()):
@@ -295,15 +396,15 @@ class FlaskServer(Thread):
                         #print('FlaskServer.update[%d:%d:%s]: impinj %s' % (i, j, impinj, self.impinjs[impinj]), )
         
         #log('FlaskServer.impinjUpdate: impinjs: %s' % self.impinjs, )
-        self.setImpinjResults()
+        #self.setImpinjResults()
 
     def setPrinterResults(self):
-        self.printerResults = []
+        self.newPrinterResults = []
         self.lastPrintersUpdate = time.time()
         printerStats = self.qlmuxd.printerStats()
         #log('FlaskServer.setPrinterResults: printerStats: %s' % printerStats, )
         for i, (printerId, info) in enumerate(self.printers.items()):
-            #log('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printerId, info), )
+            log('FlaskServer.setPrinterResults[%d:%s]: info %s' % (i, printerId, info), )
             hostaddr = info.get('hostaddr', None)
             hostname = info.get('hostname', None)
             macaddr = info.get('MACAddress', None)
@@ -314,21 +415,29 @@ class FlaskServer(Thread):
             stats = printerStats.get(printerId, None)
             #if seenElapsed > 10:
             #    log('FlaskServer.setPrinterResults[%d:%s]: seenElapsed: %s' % (i, printerId, seenElapsed), )
-            self.printerResults.append({
+            self.newPrinterResults.append({
                 'id': printerId,
                 'name': hostname, 
                 'address': info.get('hostaddr',''),
                 'tooltip0': tooltip0,
                 'status': info.get('Status',''),
                 'media': info.get('Media',''),
-                'left': info.get('left', False),
-                'center': info.get('center', False),
-                'right': info.get('right', False),
+                #'left': info.get('left', False),
+                #'center': info.get('center', False),
+                #'right': info.get('right', False),
+                'queue': info.get('queue', 'Center'),
                 'stats': '%s/%s' % (stats[0], stats[1]) if stats else 'n/a',
                 'SysUpTime': self.sysUpTime(info.get('SysUpTime', 0)),
                 'lastSeen': datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s',
                 }
             )
+        diff = DeepDiff(self.printerResults, self.newPrinterResults)
+        if len(diff):
+            log('FlaskServer.setPrinterResults: diff: %s' % diff, )
+            self.printerResults = self.newPrinterResults
+            return True
+        log('FlaskServer.setPrinterResults: no change', )
+        return False
         #log('FlaskServer.printerUpdate: results: %s' % self.printerResults, )
 
     def printerUpdate(self, printerInfo=None):
@@ -338,7 +447,7 @@ class FlaskServer(Thread):
                 macaddr = info.get('MACAddress', None)
                 serialnumber = info.get('SerialNumber', None)
                 if printer not in self.printers:
-                    self.printers[printer] = {'left': False, 'center': True, 'right': False, }
+                    self.printers[printer] = {'queue': 'center', }
                     #log('FlaskServer.update[%d:%s]: printer %s EMPTY' % (i, printer, self.printers[printer]), )
                 self.printers[printer]['lastSeen'] = time.time()
                 if info:
@@ -346,7 +455,7 @@ class FlaskServer(Thread):
                         if v != '':
                             self.printers[printer][k] = v
 
-        self.setPrinterResults()
+        #self.setPrinterResults()
 
     def run(self):
         log('FlaskSever.run: Starting server', )

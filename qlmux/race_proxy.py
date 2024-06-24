@@ -147,7 +147,10 @@ def raceproxymain():
 
     #log('main: printerStatusQueue: %s' % (printerStatusQueue,), )
 
+    # XXX need to delay creation of ImpinTCPProxy until we have listenAddress
+    # Alternately we could create a pool 
     impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
+    #impinjTCPProxy = None
     qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
     flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, qlmuxd=qlmuxd, 
                               printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent)

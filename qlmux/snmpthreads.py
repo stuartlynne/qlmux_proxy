@@ -264,6 +264,7 @@ class ImpinjSNMPThread(SNMPThread, ):
             except Exception as e:
                 log('ImpinjSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
                 log(traceback.format_exc(), )
+                sleep(2)
                 continue
 
             if not self.id:

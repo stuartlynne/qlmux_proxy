@@ -37,6 +37,7 @@ class TCPProxy(Thread):
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((host, hostport))
         self.server.listen(200)
+        self.listenAddress = None
         self.host = host
         self.hostport = hostport
         self.target = target
@@ -58,11 +59,12 @@ class TCPProxy(Thread):
     #      - close existing connections
     #      - set the new target    
     #      - set changeEvent to signal the change
-    def change(self, target, targetport=None, ):
+    def change(self, target, listenAddress=None, targetport=None, ):
         log('TCPProxy.change[%s] targetport: %s)' % (target, targetport), )
         self.close_all()
         self.update({'status': 'closing'})
         self.target = target
+        self.listenAddress = listenAddress
         if targetport:
             self.targetport = targetport
         log('TCPProxy.change[%s] targetport: %s' % (self.target, self.targetport), )
@@ -167,8 +169,9 @@ class TCPProxy(Thread):
             log("TCPProxy.on_accept[%s] Closing connection with client side %s" % (self.target, clientaddr), )
             clientsock.close()
 
-class ImpinjTCPProxy(TCPProxy):
 
+
+class ImpinjTCPProxy(TCPProxy):
     def __init__(self, host='0.0.0.0', hostport=5084, target=None, targetport=5084, stopEvent=None, changeEvent=None):
         super(ImpinjTCPProxy, self).__init__(host, hostport, target, targetport, stopEvent=stopEvent, changeEvent=changeEvent)
 
