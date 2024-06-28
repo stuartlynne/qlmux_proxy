@@ -114,9 +114,9 @@ class TestPage:
         impinjs = Table('MyTable2', id='impinj-table', columns=[], rows=[],)
 
         misc = MiscFunctions()
-        titleListener = TitleTableListener(tableName='title-table', scriptName='/title_updates', addRow='titleAddRow')
-        printerListener = PrintersTableListener(tableName='printers-table', scriptName='/printer_updates', addRow='printerAddRow')
-        impinjListener = ImpinjsTableListener(tableName='impinj-table', scriptName='/impinj_updates', addRow='impinjAddRow')
+        titleListener = TitleTableListener(tableName='title-table', scriptName='/title_updates', addRow='titleAddRow', headers='TitleHeaders')
+        printerListener = PrintersTableListener(tableName='printers-table', scriptName='/printer_updates', addRow='printerAddRow', headers='PrinterHeaders')
+        impinjListener = ImpinjsTableListener(tableName='impinj-table', scriptName='/impinj_updates', addRow='impinjAddRow', headers='ImpinjHeaders')
 
         page = HtmlPage('Printers Status', apis=apis, elements=[title, printers, impinjs], scripts=[misc, titleListener, printerListener, impinjListener, ], testpage=None)
         return str(page)
