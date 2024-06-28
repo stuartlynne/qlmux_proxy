@@ -133,9 +133,11 @@ class MiscFunctions(Script):
             }
         }
 
-        function addRowsOnMessage(addRow, table, tableHeader, tableDescription, data) {
-            console.log('addRowsOnMessage[%s] table', tableDescription);
+        function addRowsOnMessage(addRow, headers, table, tableHeader, tableDescription, data) {
+            console.log('addRowsOnMessage[%s] tableHeader: %s', tableDescription, tableHeader);
             console.log('addRowsOnMessage[%s] replaceTable', data.replaceTable);
+            console.dir(data);
+            //console.log('addRow: %s', addRow);
             // Replace table rows and build new table
             // Clear existing rows
 
@@ -156,7 +158,8 @@ class MiscFunctions(Script):
                 if (tableDescription == 'QLmux Proxy') {
                     var headerRow = tableHeader.insertRow();
                     var labelCell = headerRow.insertCell();
-                    labelCell.colSpan = data.header.length - 1;
+                    //labelCell.colSpan = data.header.length - 1;
+                    labelCell.colSpan = tableHeader.length - 1;
                     labelCell.textContent = tableDescription;
                     labelCell.addEventListener('click', function() {
                         if (tableDescription === 'Printers') {
@@ -179,10 +182,11 @@ class MiscFunctions(Script):
 
                 if (tableDescription !== 'QLmux Proxy') {
                     var headerRow = tableHeader.insertRow();
-                    data.header.forEach(function (header) {
+                    //data.header.forEach(function (header) {
+                    for (let i = 0; i < headers.length; i++) {
                         var cell = headerRow.insertCell();
-                        cell.textContent = header;
-                    });
+                        cell.textContent = headers[i];
+                    };
                 }
             } 
             else {
@@ -207,13 +211,13 @@ class MiscFunctions(Script):
 
         }
 
-        function addEventSource(url, addRow, addRowsOnMessage, table, tableHeader, event, tableDescription) {
+        function addEventSource(url, addRow, headers, addRowsOnMessage, table, tableHeader, event, tableDescription) {
             var eventSource = new EventSource(url);
             eventSource.onmessage = function (event) {
                 var data = JSON.parse(event.data);
                 console.log('addEventSource: %s', data);
                 console.dir(data);
-                addRowsOnMessage(addRow, table, tableHeader, tableDescription, data);
+                addRowsOnMessage(addRow, headers, table, tableHeader, tableDescription, data);
             }
             return eventSource;
         }
