@@ -27,13 +27,16 @@ from .utils import log
 class RaceProxy(Thread):
     def __init__(self, stopEvent=None, changeEvent=None,
                              printerResetEvent=None, impinjResetEvent=None,
-                 snmpDiscoveredQueue=None, flaskServer=None, qlmuxd=None):
+                 snmpDiscoveredQueue=None, 
+                 proxyStatusQueue=None,
+                 flaskServer=None, qlmuxd=None):
         super().__init__()
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
         self.printerResetEvent = printerResetEvent
         self.impinjResetEvent = impinjResetEvent
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
+        self.proxyStatusQueue = proxyStatusQueue
         self.flaskServer = flaskServer
         self.qlmuxd = qlmuxd
         self.printerStatusQueue = Queue()     # queue for printer status updates
@@ -98,9 +101,12 @@ class RaceProxy(Thread):
                 #printer = printerStatusQueue.get()
                 #log(f'printerStatusQueue get: {printer}', )
             while not self.impinjStatusQueue.empty():
-                #log(f'impinjStatusQueue get: {impinjStatusQueue.get()}', )
+                #log(f'impinjStatusQueue get: {self.impinjStatusQueue.get()}', )
                 self.flaskServer.impinjUpdate(self.impinjStatusQueue.get())
-                #printer = printerStatusQueue.get()
+            #log('proxyStatusQueue: len: %d' % (self.proxyStatusQueue.qsize(),), )
+            while not self.proxyStatusQueue.empty():
+                #log(f'proxyStatusQueue get: {self.proxyStatusQueue.get()}', )
+                self.flaskServer.proxyUpdate(self.proxyStatusQueue.get())
 
             # look for timed out printers
             self.printers = {k: v for k, v in self.printers.items() if v.is_alive()}
@@ -151,7 +157,9 @@ def raceproxymain():
     # Alternately we could create a pool 
 
     
-    threads = {'127.0.0.%d'%i: ImpinjTCPProxy(hostport=5084+i, stopEvent=stopEvent, changeEvent=changeEvent) for i in range(1,4)}
+    proxyStatusQueue = Queue()         # queue for TCPProxy status updates
+
+    threads = {'127.0.0.%d'%i: ImpinjTCPProxy(hostport=5084+i, stopEvent=stopEvent, changeEvent=changeEvent, proxyStatusQueue=proxyStatusQueue) for i in range(1,4)}
     
     threads['qlmuxd'] = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
     threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
@@ -168,7 +176,7 @@ def raceproxymain():
 
     threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, 
                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
-                             snmpDiscoveredQueue=snmpDiscoveredQueue, 
+                             snmpDiscoveredQueue=snmpDiscoveredQueue, proxyStatusQueue=proxyStatusQueue,
                              flaskServer=threads['flaskserver'], qlmuxd=threads['qlmuxd'])
 
 

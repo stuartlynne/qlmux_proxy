@@ -318,13 +318,15 @@ class FlaskServer(Thread):
         self.newImpinjResults = []
         self.lastImpinjsUpdate = time.time()
         for i, (impinj, info) in enumerate(self.impinjs.items()):
-            #log('FlaskServer.setImpinjResults[%d:%s]: info %s ' % (i, impinj, info), )
+            log('FlaskServer.setImpinjResults[%d:%s]: info %s ' % (i, impinj, info), )
             hostname = info.get('hostname', None)
             hostaddr = info.get('hostaddr', None)
             macaddr = info.get('MACAddress', None)
             serialnumber = info.get('SerialNumber', None)
             address = f"<a href='http://{hostaddr}'>{hostaddr}</a>" if hostaddr else 'n/a'
             tooltip0 = f"{info.get('Model','')} {info.get('sysdescr','')}"
+            connected = info.get('connected', False)
+            log('FlaskServer.setImpinjResults[%d:%s]: connected: %s' % (i, impinj, connected), )
 
             seenElapsed = time.time() - info.get('lastSeen', 0)
             #if seenElapsed > 10:
@@ -343,7 +345,10 @@ class FlaskServer(Thread):
                 'SysUpTime': sysUpTime,
                 'lastSeen': lastSeen,
                 'lastSeenUpTime': '%s / %s' % (lastSeen, sysUpTime),
+                'connected': info.get('connected', False),
+                'connectedChanged': info.get('connectedChanged', False),
                 })
+            info['connectedChanged'] = False
 
         diff = DeepDiff(self.impinjResults, self.newImpinjResults)
         if len(diff):
@@ -354,6 +359,24 @@ class FlaskServer(Thread):
         log('FlaskServer.setImpinjResults: no change', )
         log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
         return False
+
+    # called by the main thread to update
+    def proxyUpdate(self, proxyStatus=None):
+        log('FlaskServer.proxyUpdate: ----------------------------------------------', )
+        log('FlaskServer.proxyUpdate: proxyStatus: %s' % proxyStatus, )
+        for pk, pv in proxyStatus.items():
+            if not pk:
+                continue
+            if 'status' in pv:
+                for k, v in self.impinjs.items():
+                    log('FlaskServer.proxyUpdate[%s] %s' % (k, v), )
+                    hostaddr = v.get('hostaddr', None)
+                    log('FlaskServer.proxyUpdate: hostaddr: %s CHECK' % hostaddr, )
+                    if pk == hostaddr:
+                        v['connected'] = pv['status'] == 'connected'
+                        v['connectedChanged'] = True
+                        log('FlaskServer.proxyUpdate: hostaddr: %s connected: %s set' % (hostaddr, v['connected']), )
+        log('FlaskServer.proxyUpdate: ----------------------------------------------', )
 
     # called by the main thread to update
     def impinjUpdate(self, impinjInfo=None):
@@ -394,6 +417,7 @@ class FlaskServer(Thread):
                         continue
                     log('FlaskServer.update[%d:%s]: impinj %s Disabled' % (i, impinj, self.impinjs[impinj]), )
                     self.impinjs[impinj] = {'proxyAddress': 'Disabled'}
+                    self.impinjs[impinj]['connected'] = False
 
                 self.impinjs[impinj]['lastSeen'] = time.time()
                 if info:

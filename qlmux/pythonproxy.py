@@ -28,7 +28,7 @@ class Forward:
 class TCPProxy(Thread):
 
     def __init__(self, host=None, hostport=None, target=None, targetport=None, maxconnect=None, 
-                 stopEvent=None, changeEvent=None, tcpStatusQueue=None):
+                 stopEvent=None, changeEvent=None, proxyStatusQueue=None):
 
         super(TCPProxy, self).__init__()
         self.input_list = []
@@ -48,20 +48,25 @@ class TCPProxy(Thread):
         self.targetport = targetport
         self.stopEvent = stopEvent
         self.changeEvent = changeEvent
-        self.tcpStatusQueue = tcpStatusQueue
+        self.proxyStatusQueue = proxyStatusQueue
         log('TCPProxy.__init__[%s:%s] targetport: %s' % (self.hostport, self.target, self.targetport), )
 
         self.dataReceived = 0
         self.messagesReceived = 0
 
-    def update(self, tcpStatus):
-        log('TCPProxy.update[%s] %s' % (self.target, tcpStatus,), )
-        if self.tcpStatusQueue:
-            self.tcpStatusQueue.put({self.target: tcpStatus})
+    def update(self, proxyStatus):
+        if self.proxyStatusQueue:
+            if self.target: 
+                log('TCPProxy.update[%s:%s] proxyStatus: %s' % (self.hostport, self.target, proxyStatus,), )
+                self.proxyStatusQueue.put({self.target: proxyStatus})
+            else:
+                log('TCPProxy.update[%s:%s] proxyStatus: %s NO TARGET' % (self.hostport, self.target, proxyStatus,), )
+        else:
+            log('TCPProxy.update[%s:%s] proxyStatus: %s NO QUEUE' % (self.hostport, self.target, proxyStatus,), )
 
     def stop(self):
-        self.close_all()
         self.update({'status': 'closing'})
+        self.close_all()
         self.target = None
         self.connected = False
 
@@ -70,9 +75,9 @@ class TCPProxy(Thread):
     #      - set the new target    
     #      - set changeEvent to signal the change
     def change(self, target=None, ):
-        log('TCPProxy.change[%s:%s] target: %s)' % (self.hostport, target, target), )
-        self.close_all()
+        log('TCPProxy.change[%s:%s] target: %s)' % (self.hostport, self.target, target), )
         self.update({'status': 'closing'})
+        self.close_all()
         self.target = target
         log('TCPProxy.change[%s:%s] target: %s' % (self.hostport, self.target, self.target), )
         self.dataReceived = 0
@@ -185,8 +190,9 @@ class TCPProxy(Thread):
 
 
 class ImpinjTCPProxy(TCPProxy):
-    def __init__(self, host='0.0.0.0', hostport=None, target=None, targetport=5084, stopEvent=None, changeEvent=None):
-        super(ImpinjTCPProxy, self).__init__(host, hostport, target, targetport, stopEvent=stopEvent, changeEvent=changeEvent)
+    def __init__(self, host='0.0.0.0', hostport=None, target=None, targetport=5084, stopEvent=None, changeEvent=None, proxyStatusQueue=None):
+        super(ImpinjTCPProxy, self).__init__(host, hostport, target, targetport, stopEvent=stopEvent, changeEvent=changeEvent,
+                                             proxyStatusQueue=proxyStatusQueue)
 
 
 if __name__ == '__main__':
