@@ -189,21 +189,32 @@ class FlaskServer(Thread):
 
     # Set the listen address for an Impinj reader, if the address is already in use, assign a new one
     # to the existing reader
-    def setImpinjListenAddress(self, id, proxyPort):
-        listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
+    def setImpinjListenAddress(self, id, proxyAddress):
+        listening = { v['proxyAddress']: k for k, v in self.impinjs.items() }
         log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
+
+        # stop existing proxy for this reader
+        if self.impinjs[id]['proxyAddress'] != 'Disabled':
+            self.impinjProxies[self.impinjs[id]['proxyAddress']].stop()
+
+        # if the proxyAddress is already in use, stop the existing proxy
         for k, v in self.impinjs.items():
-            if v['proxyPort'] == proxyPort:
-                v['proxyPort'] = 'Disabled'
-        listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
-        log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
-        if proxyPort in listening:
-            k = listening.pop(proxyPort)
-            available = [ '127.0.0.%d' % i for i in range(1,4) if i not in listening ]  
-            self.impinjs[k]['proxyPort'] = available[0] if available else 'Disabled'
-            log('FlaskServer.setImpinjListenAddress[%s]: proxyPort: %s already in use, assigning %s' % (id, proxyPort, self.impinjs[k]['proxyPort']), )
-        self.impinjs[id]['proxyPort'] = proxyPort
-        log('FlaskServer.setImpinjListenAddress[%s]: proxyPort: %s' % (id, proxyPort), )
+            if v['proxyAddress'] == proxyAddress:
+                self.impinjProxies[proxyAddress].stop()
+                v['proxyAddress'] = 'Disabled'
+
+        #listening = { v['proxyAddress']: k for k, v in self.impinjs.items() }
+        #log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
+        #if proxyAddress in listening:
+        #    k = listening.pop(proxyAddress)
+        #    available = [ '127.0.0.%d' % i for i in range(1,4) if i not in listening ]  
+        #    self.impinjs[k]['proxyAddress'] = available[0] if available else 'Disabled'
+        #    log('FlaskServer.setImpinjListenAddress[%s]: proxyAddress: %s already in use, assigning %s' % (id, proxyAddress, self.impinjs[k]['proxyAddress']), )
+
+        # point proxy to hostaddr for this reader
+        self.impinjs[id]['proxyAddress'] = proxyAddress
+        self.impinjProxies[proxyAddress].change(target=self.impinjs[id]['hostaddr'],)
+        log('FlaskServer.setImpinjListenAddress[%s]: proxyAddress: %s' % (id, proxyAddress), )
 
     def updateImpinjStatus(self):
         try:
@@ -213,9 +224,9 @@ class FlaskServer(Thread):
             log('FlaskSEver.updateImpinjStatus: Update Impinj status: request: %s' % (request), )
             return 'OK'
         id = data['id']
-        proxyPort = data['proxyPort']
-        log('FlaskServer.updateImpinjStatus[%s]: proxyPort: %s' % (id, proxyPort), )
-        self.setImpinjListenAddress(id, proxyPort)
+        proxyAddress = data['proxyAddress']
+        log('FlaskServer.updateImpinjStatus[%s]: proxyAddress: %s' % (id, proxyAddress), )
+        self.setImpinjListenAddress(id, proxyAddress)
         # XXX probably need to create/destroy the ImpinjTCPProxy's here
 
 
@@ -226,12 +237,13 @@ class FlaskServer(Thread):
         return 'OK'
 
     def __init__(self, changeEvent=None, printerResetEvent=None, impinjResetEvent=None,
-                 impinjTCPProxy=None, qlmuxd=None, **kwargs):
+                 impinjProxies=None, qlmuxd=None, **kwargs):
         # XXX need to instantiate the ImpinjTCPProxy later for the individual RFID readers
         #self.impinjTCPProxy = impinjTCPProxy
         self.printerResetEvent = printerResetEvent
         self.impinjResetEvent = impinjResetEvent
         self.changeEvent = changeEvent
+        self.impinjProxies = impinjProxies
         self.qlmuxd = qlmuxd
         self.semaphore = Semaphore()
         self.app1 = Flask(__name__)
@@ -327,7 +339,7 @@ class FlaskServer(Thread):
                 'status': info.get('Status',''),
                 'media': info.get('Media',''),
                 'enabled': info.get('enabled', False),
-                'proxyPort': info.get('proxyPort', 'Disabled'),
+                'proxyAddress': info.get('proxyAddress', 'Disabled'),
                 'SysUpTime': sysUpTime,
                 'lastSeen': lastSeen,
                 'lastSeenUpTime': '%s / %s' % (lastSeen, sysUpTime),
@@ -351,33 +363,37 @@ class FlaskServer(Thread):
         with self.semaphore:
             for i, (impinj, info) in enumerate(impinjInfo.items()):
                 if impinj not in self.impinjs:
-                    listening = { v['proxyPort']: k for k, v in self.impinjs.items() }
+                    listening = { v['proxyAddress']: k for k, v in self.impinjs.items() }
                     log('FlaskServer.impinjUpdate: listening: %s' % listening, )
                     impinjs = len(self.impinjs)
                     addresses = len(listenAddresses)
                     index = impinjs if impinjs < addresses else addresses - 1
-                    self.impinjs[impinj] = {'proxyPort': listenAddresses[index],}
+                    self.impinjs[impinj] = {'proxyAddress': listenAddresses[index],}
                     hostname = info.get('hostname', None).lower()
                     log('FlaskServer.impinjUpdate[%d:%s]: impinj %s hostname: %s table: %s kiosk: %s' % 
                         (i, impinj, self.impinjs[impinj], hostname, hostname.endswith('table'), hostname.endswith('kiosk')), )
                     if hostname.endswith('table') and '127.0.0.1' not in listening:
                         log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 127.0.0.1 for TABLE' % (i, impinj, self.impinjs[impinj]), )
-                        self.impinjs[impinj] = {'proxyPort': '127.0.0.1', }
+                        self.impinjs[impinj] = {'proxyAddress': '127.0.0.1', }
+                        self.impinjProxies['127.0.0.1'].change(target=info.get('hostaddr',),)
                         continue
                     if hostname.endswith('kiosk') and '127.0.0.2' not in listening:
                         log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 127.0.0.2 for KIOSK' % (i, impinj, self.impinjs[impinj]), )
-                        self.impinjs[impinj] = {'proxyPort': '127.0.0.2', }
+                        self.impinjs[impinj] = {'proxyAddress': '127.0.0.2', }
+                        self.impinjProxies['127.0.0.2'].change(target=info.get('hostaddr',),)
                         continue
                     if '127.0.0.1' not in listening:
                         log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 127.0.0.1' % (i, impinj, self.impinjs[impinj]), )
-                        self.impinjs[impinj] = {'proxyPort': '127.0.0.1'}
+                        self.impinjs[impinj] = {'proxyAddress': '127.0.0.1'}
+                        self.impinjProxies['127.0.0.1'].change(target=info.get('hostaddr',),)
                         continue
                     if '127.0.0.2' not in listening:
                         log('FlaskServer.update[%d:%s]: impinj %s 127.0.0.2' % (i, impinj, self.impinjs[impinj]), )
-                        self.impinjs[impinj] = {'proxyPort': '127.0.0.2'}
+                        self.impinjs[impinj] = {'proxyAddress': '127.0.0.2'}
+                        self.impinjProxies['127.0.0.2'].change(target=info.get('hostaddr',),)
                         continue
                     log('FlaskServer.update[%d:%s]: impinj %s Disabled' % (i, impinj, self.impinjs[impinj]), )
-                    self.impinjs[impinj] = {'proxyPort': 'Disabled'}
+                    self.impinjs[impinj] = {'proxyAddress': 'Disabled'}
 
                 self.impinjs[impinj]['lastSeen'] = time.time()
                 if info:

@@ -149,15 +149,11 @@ def raceproxymain():
 
     # XXX need to delay creation of ImpinTCPProxy until we have listenAddress
     # Alternately we could create a pool 
-    impinjTCPProxy = ImpinjTCPProxy(stopEvent=stopEvent, changeEvent=changeEvent)
-    #impinjTCPProxy = None
-    qlmuxd = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
-    flaskServer = FlaskServer(impinjTCPProxy=impinjTCPProxy, qlmuxd=qlmuxd, 
-                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent)
 
-    threads = {'flaskserver': flaskServer, 'qlmuxd': qlmuxd, 'impinjTCPProxy': impinjTCPProxy}
-    #log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
-
+    
+    threads = {'127.0.0.%d'%i: ImpinjTCPProxy(hostport=5084+i, stopEvent=stopEvent, changeEvent=changeEvent) for i in range(1,4)}
+    
+    threads['qlmuxd'] = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
     threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
@@ -166,10 +162,15 @@ def raceproxymain():
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
+    threads['flaskserver'] = FlaskServer(qlmuxd=threads['qlmuxd'], 
+                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
+                                         impinjProxies={k: v for k, v in threads.items() if isinstance(v, ImpinjTCPProxy)})
+
     threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, 
                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
                              snmpDiscoveredQueue=snmpDiscoveredQueue, 
-                             flaskServer=flaskServer, qlmuxd=qlmuxd)
+                             flaskServer=threads['flaskserver'], qlmuxd=threads['qlmuxd'])
+
 
     [v.start() for k, v in threads.items()]
 
