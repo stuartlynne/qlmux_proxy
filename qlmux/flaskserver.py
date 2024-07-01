@@ -333,12 +333,13 @@ class FlaskServer(Thread):
             #    log('FlaskServer.setImpinjResults[%d:%s]: seenElapsed: %s' % (i, impinj, seenElapsed), )
             lastSeen = datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s'
             sysUpTime = self.sysUpTime(info.get('SysUpTime', 0))
+            stats = info.get('stats', 'n/a')
             self.newImpinjResults.append({
                 'id': impinj,
                 'name': hostname, 
                 'address': info.get('hostaddr',''),
                 'tooltip0': tooltip0,
-                'status': info.get('Status',''),
+                'stats': stats,
                 'media': info.get('Media',''),
                 'enabled': info.get('enabled', False),
                 'proxyAddress': info.get('proxyAddress', 'Disabled'),
@@ -365,17 +366,23 @@ class FlaskServer(Thread):
         log('FlaskServer.proxyUpdate: ----------------------------------------------', )
         log('FlaskServer.proxyUpdate: proxyStatus: %s' % proxyStatus, )
         for pk, pv in proxyStatus.items():
+            log('FlaskServer.proxyUpdate: pk: %s pv: %s' % (pk, pv), )
+            status = pv.get('status', None)
             if not pk:
                 continue
-            if 'status' in pv:
-                for k, v in self.impinjs.items():
-                    log('FlaskServer.proxyUpdate[%s] %s' % (k, v), )
-                    hostaddr = v.get('hostaddr', None)
-                    log('FlaskServer.proxyUpdate: hostaddr: %s CHECK' % hostaddr, )
-                    if pk == hostaddr:
+            for k, v in self.impinjs.items():
+                log('FlaskServer.proxyUpdate[%s] %s' % (k, v), )
+                hostaddr = v.get('hostaddr', None)
+                if pk == hostaddr:
+                    messagesReceived = pv.get('messagesReceived', None)
+                    log('FlaskServer.proxyUpdate[%s]: hostaddr: %s messagesReceived: %s' % (pk, hostaddr, messagesReceived), )
+                    status
+                    if status:
                         v['connected'] = pv['status'] == 'connected'
                         v['connectedChanged'] = True
-                        log('FlaskServer.proxyUpdate: hostaddr: %s connected: %s set' % (hostaddr, v['connected']), )
+                    if messagesReceived and len(messagesReceived) == 2:    
+                        v['stats'] = '%s/%s' % (messagesReceived[0], messagesReceived[1])
+                    log('FlaskServer.proxyUpdate[%s]: k: %s v: %s' % (k, pk, v), )
         log('FlaskServer.proxyUpdate: ----------------------------------------------', )
 
     # called by the main thread to update

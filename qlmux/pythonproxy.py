@@ -53,6 +53,7 @@ class TCPProxy(Thread):
 
         self.dataReceived = 0
         self.messagesReceived = 0
+        self.messages = {}
 
     def update(self, proxyStatus):
         if self.proxyStatusQueue:
@@ -60,7 +61,7 @@ class TCPProxy(Thread):
                 log('TCPProxy.update[%s:%s] proxyStatus: %s' % (self.hostport, self.target, proxyStatus,), )
                 self.proxyStatusQueue.put({self.target: proxyStatus})
             else:
-                log('TCPProxy.update[%s:%s] proxyStatus: %s NO TARGET' % (self.hostport, self.target, proxyStatus,), )
+                log('TCPProxy.update[%s:%s] proxyStatus: %s NO QUEUE' % (self.hostport, self.target, proxyStatus,), )
         else:
             log('TCPProxy.update[%s:%s] proxyStatus: %s NO QUEUE' % (self.hostport, self.target, proxyStatus,), )
 
@@ -82,6 +83,7 @@ class TCPProxy(Thread):
         log('TCPProxy.change[%s:%s] target: %s' % (self.hostport, self.target, self.target), )
         self.dataReceived = 0
         self.messagesReceived = 0
+        self.messages = {}
         #for k, v in self.channel.items():
         #    v.close()
         #self.channel = {}
@@ -136,7 +138,10 @@ class TCPProxy(Thread):
                 if len(data):
                     self.dataReceived += len(data)
                     self.messagesReceived += 1
-                    self.update({'dataReceived': self.dataReceived, 'messagesReceived': self.messagesReceived})
+                    if s not in self.messages:
+                        self.messages[s] = 0
+                    self.messages[s] += 1
+                    self.update({'dataReceived': self.dataReceived, 'messagesReceived': [*self.messages.values()]})
                     self.channels[s].send(data)
                     log('TCPProxy.run[%s:%s]: sent %s' % (self.hostport, self.target, len(data), ), )
                     continue
