@@ -406,6 +406,10 @@ class FlaskServer(Thread):
                     hostname = info.get('hostname', None).lower()
                     log('FlaskServer.impinjUpdate[%d:%s]: impinj %s hostname: %s table: %s kiosk: %s' % 
                         (i, impinj, self.impinjs[impinj], hostname, hostname.endswith('table'), hostname.endswith('kiosk')), )
+                    if hostname.endswith('spare') and '127.0.0.1' not in listening:
+                        self.impinjs[impinj] = {'proxyAddress': 'Disabled'}
+                        self.impinjs[impinj]['connected'] = False
+                        continue
                     if hostname.endswith('table') and '127.0.0.1' not in listening:
                         log('FlaskServer.impinjUpdate[%d:%s]: impinj %s 127.0.0.1 for TABLE' % (i, impinj, self.impinjs[impinj]), )
                         self.impinjs[impinj] = {'proxyAddress': '127.0.0.1', }
