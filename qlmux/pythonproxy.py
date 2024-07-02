@@ -66,7 +66,7 @@ class TCPProxy(Thread):
             log('TCPProxy.update[%s:%s] proxyStatus: %s NO QUEUE' % (self.hostport, self.target, proxyStatus,), )
 
     def stop(self):
-        self.update({'status': 'closing'})
+        self.update({'status': 'closing', 'clientAddress': '',})
         self.close_all()
         self.target = None
         self.connected = False
@@ -77,7 +77,7 @@ class TCPProxy(Thread):
     #      - set changeEvent to signal the change
     def change(self, target=None, ):
         log('TCPProxy.change[%s:%s] target: %s)' % (self.hostport, self.target, target), )
-        self.update({'status': 'closing'})
+        self.update({'status': 'closing', 'clientAddress': '',})
         self.close_all()
         self.target = target
         log('TCPProxy.change[%s:%s] target: %s' % (self.hostport, self.target, self.target), )
@@ -121,7 +121,6 @@ class TCPProxy(Thread):
                 if s == self.server:
                     self.on_accept()
                     log('TCPProxy.run[%s:%s]: accepted' % (self.hostport, self.target), )
-                    self.update({'status': 'connected'})
                     break
 
                 # Incoming data to be forwarded
@@ -187,6 +186,7 @@ class TCPProxy(Thread):
             self.channels[clientsock] = s
             self.channels[s] = clientsock
             self.connected = True
+            self.update({'status': 'connected', 'clientAddress': clientaddr[0], })
         else:
             log("TCPProxy.on_accept[%s:%s] Can't establish connection with remote server." % (self.hostport, self.target), )
             log("TCPProxy.on_accept[%s:%s] Closing connection with client side %s" % (self.hostport, self.target, clientaddr), )

@@ -128,7 +128,9 @@ class MiscFunctions(Script):
                     // Get the last cell in the first row
                     var timeCell = firstRow.cells[firstRow.cells.length - 1];
                     // Update the text content of the last cell
-                    timeCell.textContent = timeString;
+                    //timeCell.textContent = timeString;
+                    timeCell.textContent = 'AAA';
+                    timeCell.style.textAlign = 'right';
                 }
             }
         }
@@ -171,6 +173,7 @@ class MiscFunctions(Script):
 
                     var timeCell = headerRow.insertCell();
                     timeCell.textContent = data.lastUpdate;
+                    timeCell.style.textAlign = 'right';
                     timeCell.addEventListener('click', function() {
                         if (tableDescription === 'Printers') {
                             printerTimeClicked(timeCell);

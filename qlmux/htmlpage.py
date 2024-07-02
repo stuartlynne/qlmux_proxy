@@ -58,15 +58,6 @@ class Table:
                 doc.asis('')
             with tag('tbody', id=f"{self.id}-body",): 
                 doc.asis('')
-            #with tag('tr'):
-            #    for column in self.columns:
-            #        with tag('th'):
-            #            text(column)
-            #for row in self.rows:
-            #    with tag('tr'):
-            #        for cell in row:
-            #            with tag('td'):
-            #                text(cell)
         return indent(doc.getvalue())
 
 

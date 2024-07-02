@@ -334,6 +334,7 @@ class FlaskServer(Thread):
             lastSeen = datetime.datetime.utcfromtimestamp(seenElapsed).strftime('%H:%M:%S') if seenElapsed > 10 else '< 10s'
             sysUpTime = self.sysUpTime(info.get('SysUpTime', 0))
             stats = info.get('stats', 'n/a')
+            clientAddress = info.get('clientAddress', '')
             self.newImpinjResults.append({
                 'id': impinj,
                 'name': hostname, 
@@ -342,6 +343,7 @@ class FlaskServer(Thread):
                 'stats': stats,
                 'media': info.get('Media',''),
                 'enabled': info.get('enabled', False),
+                'clientAddress': clientAddress,
                 'proxyAddress': info.get('proxyAddress', 'Disabled'),
                 'SysUpTime': sysUpTime,
                 'lastSeen': lastSeen,
@@ -375,11 +377,13 @@ class FlaskServer(Thread):
                 hostaddr = v.get('hostaddr', None)
                 if pk == hostaddr:
                     messagesReceived = pv.get('messagesReceived', None)
+                    clientAddress = pv.get('clientAddress', None)
                     log('FlaskServer.proxyUpdate[%s]: hostaddr: %s messagesReceived: %s' % (pk, hostaddr, messagesReceived), )
-                    status
                     if status:
                         v['connected'] = pv['status'] == 'connected'
                         v['connectedChanged'] = True
+                    if clientAddress:
+                        v['clientAddress'] = clientAddress
                     if messagesReceived and len(messagesReceived) == 2:    
                         v['stats'] = '%s/%s' % (messagesReceived[0], messagesReceived[1])
                     log('FlaskServer.proxyUpdate[%s]: k: %s v: %s' % (k, pk, v), )
