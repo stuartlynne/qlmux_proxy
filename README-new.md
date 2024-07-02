@@ -10,6 +10,10 @@ QLMux Proxy is a robust solution designed to streamline label printing for event
 - **Web Status Page**: Provides diagnostics and control for printers and RFID readers, accessible via a simple web interface.
 
 ### Additional Scripts
+Several additional scripts are used in the *RaceDB* container to help it forward labels to QLMux Proxy for printing 
+and use RFID readers that QLMux Proxy finds and manages. These eliminate most of the need to change the RaceDB 
+configuration to use different printers or RFID readers.
+
 - **qllabels**: Converts a label PDF file to Brother QL raster format and submits it to QLMux Proxy.
 - **rfidproxy**: Connects RaceDB to the QLMux Proxy and the RFID reader.
 
@@ -25,7 +29,9 @@ For more information, see the [related.md](related.md) file.
 QLMux Proxy supports label printing to Brother QL printers, dynamically discovering and managing them in pools to ensure efficient and redundant operation. The `qllabels` script formats labels and submits them to the QLMux Proxy based on command-line arguments from RaceDB.
 
 ### RFID Reader Proxy
-QLMux Proxy transparently proxies RaceDB connections to dynamically found RFID readers, using a single IP address and port. The `rfidproxy` script connects RaceDB to the QLMux Proxy and RFID reader.
+QLMux Proxy transparently proxies RaceDB connections to dynamically found RFID readers. The `rfidproxy` script connects RaceDB to the QLMux Proxy and RFID reader.
+Each RaceDB instance uses a separate IP address that is listened to by the rfidproxy script. That script in turn forwards the connection to QLMux Proxy 
+which connects it to the currently assigned RFID Reader.
 
 ## RFID Proxy Configuration
 - Any connection to QLMux Proxy on port 5084 is proxied to the found RFID reader.
@@ -33,6 +39,13 @@ QLMux Proxy transparently proxies RaceDB connections to dynamically found RFID r
 - Supports multiple local IP addresses for different RFID readers.
 
 ### Example Configuration
+The RaceDB environment variable *RFID_READER_HOST* needs to be set in the Docker container configuration.
+E.g.
+```
+RFID_READER_HOST=127.0.0.1
+```
+If multiple RaceDB instances are used, then additional readers can be configured. This would typically be used for self serve kiosks.
+
 - Outside a container:
   - 127.0.0.1:5084 -> 0.0.0.0:5085
   - 127.0.0.2:5084 -> 0.0.0.0:5086
@@ -93,5 +106,6 @@ QLMux Proxy can run as a container. Refer to the [docker](docker/docker.md) file
 ## Related Projects
 - **traefik_racedb**: Supports QLMux Proxy and Traefik containers for existing RaceDB installations ([GitHub](https://github.com/stuartlynne/traefik_racedb)).
 - **racedb_qlmux**: Complete set of containers for Postgresql, RaceDB, QLMux Proxy, and Traefik ([GitHub](https://github.com/stuartlynne/racedb_qlmux)).
+- **qllabels/rfidproxy**: Github repository for qllabels and rfidproxy scripts ([GitHub](	https://github.com/stuartlynne/qllabels/)).
 
 For further details, see the [related.md](related.md) file.
