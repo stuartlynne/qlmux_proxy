@@ -6,6 +6,7 @@
   |CrossMgr         | [https://github.com/esitarski/CrossMgr](https://github.com/esitarski/CrossMgr)|
   |qlmux\_proxy     | [https://github.com/stuartlynne/qlmux_proxy](https://github.com/stuartlynne/qlmux_proxy)|
   |qllabels         | [https://github.com/stuartlynne/qllabels/](https://github.com/stuartlynne/qllabels/)|
+  |rfid wand        | [https://github.com/stuartlynne/rfid_wand](https://github.com/stuartlynne/rfid_wand)|
   |traefik\_racedb  | [https://github.com/stuartlynne/traefik_racedb](https://github.com/stuartlynne/traefik_racedb)|
   |racedb\_qlmux    | [https://github.com/stuartlynne/racedb_qlmux](https://github.com/stuartlynne/racedb_qlmux)|
   |wimsey\_timing   | [https://github.com/stuartlynne/wimsey_timing](https://github.com/stuartlynne/wimsey_timing)|
