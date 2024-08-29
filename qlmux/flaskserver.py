@@ -22,13 +22,28 @@ from .htmlpage import TestPage
 from .utils import log
 from .printer import PrinterQueue
 from .pythonproxy import ImpinjTCPProxy
+import socket
 
+
+def get_host_info():
+    try:
+        host_name = socket.gethostname()
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.0.0.0', 0))
+        host_ip = s.getsockname()[0]
+        #host_ip = socket.gethostbyname(host_name)
+        host_info = '%s (%s)' % (host_name, host_ip)
+        log('get_host_info: host_info: %s' % host_info)
+        return host_info
+    except Exception as e:
+        log('get_host_info: Error: %s' % e)
+        return ''
 
 
 class FlaskServer(Thread):
     #app1 = Flask(__name__)
 
-    def root(self): 
+    def root(self):
         #testpage = TestPage.testpage
         testpage = TestPage()
         #log('%s' % testpage, )
@@ -65,9 +80,10 @@ class FlaskServer(Thread):
         with self.semaphore:
             data = 'data: {}\n\n'.format(json.dumps({
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                'hostInfo': self.hostInfo,
                 'replaceTable': True,
             }, ))
-        log('title_updates: data: %s' % (data), )
+        log('title_updates: data: %s XXX' % (data), )
         return Response(data, content_type='text/event-stream')
 
     # SSE endpoint to stream rfid reader updates
@@ -78,12 +94,12 @@ class FlaskServer(Thread):
         with self.semaphore:
             replaceTable = self.setImpinjResults()
             data = 'data: {}\n\n'.format(json.dumps({
-                'results': self.impinjResults, 
+                'results': self.impinjResults,
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
                 'replaceTable': replaceTable,
             }, ))
 
-        log('impinj_updates: Response: %s' % (data) )
+        log('impinj_updates: Response: %s XXX' % (data) )
         return Response(data, content_type='text/event-stream')
 
 
@@ -95,12 +111,12 @@ class FlaskServer(Thread):
         with self.semaphore:
             replaceTable = self.setPrinterResults()
             data = 'data: {}\n\n'.format(json.dumps({
-                'results': self.printerResults, 
+                'results': self.printerResults,
                 'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
                 'replaceTable': replaceTable,
             }, ))
 
-        log('printer_updates: Response: %s' %(data), )
+        log('printer_updates: Response: %s XXX' %(data), )
         return Response(data, content_type='text/event-stream')
 
     # Route to handle impinj clicks
@@ -109,10 +125,10 @@ class FlaskServer(Thread):
             data = request.get_json()
         except NameError:
             log('impinjClicked: no request', )
-            log('impinjClicked: request: %s' % (request), ) 
+            log('impinjClicked: request: %s' % (request), )
             return 'OK'
 
-        #log('impinjClicked clicked: request: %s' % (request), ) 
+        #log('impinjClicked clicked: request: %s' % (request), )
         impinj_name = data.get('impinj_name')
         #log('impinjClicked[%s] AAAAA' % (impinj_name), )
         #log('data:', data, )
@@ -125,10 +141,10 @@ class FlaskServer(Thread):
             data = request.get_json()
         except NameError:
             log('Printer clicked: no request', )
-            log('Printer clicked: request: %s' % (request), ) 
+            log('Printer clicked: request: %s' % (request), )
             return 'OK'
 
-        #log('Printer clicked: request: %s' % (request), ) 
+        #log('Printer clicked: request: %s' % (request), )
         printer_name = data.get('printer_name')
         log('printerClicked[%s] request: %s' % (printer_name, request), )
         #log('data:', data, )
@@ -141,7 +157,7 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            log('FlaskServer.updatePrinterQueue: Printer clicked: no request', ) 
+            log('FlaskServer.updatePrinterQueue: Printer clicked: no request', )
             log('FlaskServer.updatePrinterQueue: Update printer status: request: %s' % (request), )
             return 'OK'
         log('FlaskServer.updatePrinterQueue: data: %s' % data, )
@@ -165,7 +181,7 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            log('FlaskServer.updatePrinterStatus: Printer clicked: no request', ) 
+            log('FlaskServer.updatePrinterStatus: Printer clicked: no request', )
             log('FlaskServer.updatePrinterStatus: Update printer status: request: %s' % (request), )
             return 'OK'
         log('FlaskServer.updatePrinterStatus: data: %s' % data, )
@@ -207,7 +223,7 @@ class FlaskServer(Thread):
         #log('FlaskServer.setImpinjListenAddress[%s]: listening: %s' % (id, listening), )
         #if proxyAddress in listening:
         #    k = listening.pop(proxyAddress)
-        #    available = [ '127.0.0.%d' % i for i in range(1,4) if i not in listening ]  
+        #    available = [ '127.0.0.%d' % i for i in range(1,4) if i not in listening ]
         #    self.impinjs[k]['proxyAddress'] = available[0] if available else 'Disabled'
         #    log('FlaskServer.setImpinjListenAddress[%s]: proxyAddress: %s already in use, assigning %s' % (id, proxyAddress, self.impinjs[k]['proxyAddress']), )
 
@@ -220,7 +236,7 @@ class FlaskServer(Thread):
         try:
             data = request.get_json()
         except NameError:
-            log('FlaskSEver.updateImpinjStatus: Impinj clicked: no request', ) 
+            log('FlaskSEver.updateImpinjStatus: Impinj clicked: no request', )
             log('FlaskSEver.updateImpinjStatus: Update Impinj status: request: %s' % (request), )
             return 'OK'
         id = data['id']
@@ -247,6 +263,7 @@ class FlaskServer(Thread):
         self.qlmuxd = qlmuxd
         self.semaphore = Semaphore()
         self.app1 = Flask(__name__)
+        self.hostInfo = get_host_info()
         #self.app1.logger.removeHandler(default_handler)
         #self.app1.logger.setLevel(logging.ERROR)
         #self.app1.logger.error('FlaskServer: __init__: AAAAA')
@@ -281,11 +298,11 @@ class FlaskServer(Thread):
         self.lastImpinjsUpdate = time.time()
         self.app = self.app1
         if False:
-            #CERT_FILE = 'whiskey.local+5.pem' 
+            #CERT_FILE = 'whiskey.local+5.pem'
             #KEY_FILE = 'whiskey.local+5-key.pem'
-            CERT_FILE = 'wg.wimsey.co.pem' 
+            CERT_FILE = 'wg.wimsey.co.pem'
             KEY_FILE = 'wg.wimsey.co-key.pem'
-            #CERT_FILE = 'whiskey.ip.pem' 
+            #CERT_FILE = 'whiskey.ip.pem'
             #KEY_FILE =  'whiskey.ip-key.pem'
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             try:
@@ -337,7 +354,7 @@ class FlaskServer(Thread):
             clientAddress = info.get('clientAddress', '')
             self.newImpinjResults.append({
                 'id': impinj,
-                'name': hostname, 
+                'name': hostname,
                 'address': info.get('hostaddr',''),
                 'tooltip0': tooltip0,
                 'stats': stats,
@@ -384,7 +401,7 @@ class FlaskServer(Thread):
                         v['connectedChanged'] = True
                     if clientAddress:
                         v['clientAddress'] = clientAddress
-                    if messagesReceived and len(messagesReceived) == 2:    
+                    if messagesReceived and len(messagesReceived) == 2:
                         v['stats'] = '%s/%s' % (messagesReceived[0], messagesReceived[1])
                     log('FlaskServer.proxyUpdate[%s]: k: %s v: %s' % (k, pk, v), )
         log('FlaskServer.proxyUpdate: ----------------------------------------------', )
@@ -404,7 +421,7 @@ class FlaskServer(Thread):
                     index = impinjs if impinjs < addresses else addresses - 1
                     self.impinjs[impinj] = {'proxyAddress': listenAddresses[index],}
                     hostname = info.get('hostname', None).lower()
-                    log('FlaskServer.impinjUpdate[%d:%s]: impinj %s hostname: %s table: %s kiosk: %s' % 
+                    log('FlaskServer.impinjUpdate[%d:%s]: impinj %s hostname: %s table: %s kiosk: %s' %
                         (i, impinj, self.impinjs[impinj], hostname, hostname.endswith('table'), hostname.endswith('kiosk')), )
                     if hostname.endswith('spare') and '127.0.0.1' not in listening:
                         self.impinjs[impinj] = {'proxyAddress': 'Disabled'}
@@ -440,7 +457,7 @@ class FlaskServer(Thread):
                         #log('FlaskServer.update[%d:%d:%s]: k: %s, v: %s' % (i, j, impinj, k, v), )
                         self.impinjs[impinj][k] = v
                         #print('FlaskServer.update[%d:%d:%s]: impinj %s' % (i, j, impinj, self.impinjs[impinj]), )
-        
+
         #log('FlaskServer.impinjUpdate: impinjs: %s' % self.impinjs, )
         #self.setImpinjResults()
 
@@ -465,7 +482,7 @@ class FlaskServer(Thread):
             sysUpTime = self.sysUpTime(info.get('SysUpTime', 0))
             self.newPrinterResults.append({
                 'id': printerId,
-                'name': hostname, 
+                'name': hostname,
                 'address': info.get('hostaddr',''),
                 'tooltip0': tooltip0,
                 'status': info.get('Status',''),

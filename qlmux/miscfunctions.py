@@ -163,24 +163,13 @@ class MiscFunctions(Script):
                     //labelCell.colSpan = data.header.length - 1;
                     labelCell.colSpan = tableHeader.length - 1;
                     labelCell.textContent = tableDescription;
-                    labelCell.addEventListener('click', function() {
-                        if (tableDescription === 'Printers') {
-                            printerTitleClicked(labelCell);
-                        } else {
-                            impinjTitleClicked(labelCell);
-                        }
-                    });
 
+                    var xtimeCell = headerRow.insertCell();
+                    xtimeCell.textContent = data.hostInfo;
+                    xtimeCell.style.textAlign = 'right';
                     var timeCell = headerRow.insertCell();
                     timeCell.textContent = data.lastUpdate;
                     timeCell.style.textAlign = 'right';
-                    timeCell.addEventListener('click', function() {
-                        if (tableDescription === 'Printers') {
-                            printerTimeClicked(timeCell);
-                        } else {
-                            impinjTimeClicked(timeCell);
-                        }
-                    });
                 }
 
                 if (tableDescription !== 'QLmux Proxy') {
