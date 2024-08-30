@@ -203,13 +203,14 @@ class PrintersTableListener(TableRowListener):
                 var cell = row.cells[PrinterHeader.SELECT];
                 var select = document.createElement('select');
                 var options = ['Left', 'Center', 'Right', 'Disabled'];
-                //console.log('printersAddDropdownCell: options: %s queue: %s', options, device.queue);
 
                 options.forEach(function (option) {{
                     var opt = document.createElement('option');
+                    console.log('printersAddDropdownCell: option: %s queue: %s', option, device.queue);
                     opt.value = option;
                     opt.text = option;
-                    if (option === 'Center') {{
+                    if (option.toLowerCase() === device.queue.toLowerCase()) {{
+                        console.log('printersAddDropdownCell: option: %s queue: %s SELECTED', option, device.queue);
                         opt.selected = true;
                     }}
                     select.appendChild(opt);
@@ -230,8 +231,8 @@ class PrintersTableListener(TableRowListener):
 
             // Function to add device data to the table
             function printerAddRow(table, tableheader, device, replaceTable) {{
-                console.log('printerAddRow: %s replaceTable: %s', device, replaceTable);
-                //console.dir(device);
+                console.log('printerAddRow: %s replaceTable: %s', device.queue, replaceTable);
+                console.dir(device);
                 row = document.getElementById(device.id);
                 if (!row) {{
                     console.log('printerAddRow: %s replaceTable: %s', device, replaceTable);
