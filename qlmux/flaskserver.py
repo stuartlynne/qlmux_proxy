@@ -1,3 +1,4 @@
+import os
 import json
 import sys
 import asyncio
@@ -262,7 +263,9 @@ class FlaskServer(Thread):
         self.impinjProxies = impinjProxies
         self.qlmuxd = qlmuxd
         self.semaphore = Semaphore()
-        self.app1 = Flask(__name__)
+        log('FlaskServer: __init__:  %s' % (__file__))
+        log('FlaskServer: static: %s' % (os.path.join(os.path.dirname(__file__), 'static')))
+        self.app1 = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
         self.hostInfo = get_host_info()
         #self.app1.logger.removeHandler(default_handler)
         #self.app1.logger.setLevel(logging.ERROR)
