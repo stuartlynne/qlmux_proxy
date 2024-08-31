@@ -3,6 +3,7 @@ import sys
 from time import sleep, time
 import traceback
 from yattag import Doc, indent
+from flask import url_for
 from .utils import log
 
 from .miscfunctions import Script, MiscFunctions
@@ -94,9 +95,14 @@ class TestPage:
     def __str__(self):
 
         apis = [ 
-            '<!-- Bootstrap CSS -->', Link('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', ''),
-            '<!-- jQuery JS -->', Script("https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js", ''),
-            '<!-- Bootstrap JS -->', Script('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'),
+            #'<!-- Bootstrap CSS -->', Link('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', ''),
+            #'<!-- jQuery JS -->', Script("https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js", ''),
+            #'<!-- Bootstrap JS -->', Script('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'),
+
+            '<!-- Bootstrap CSS -->', Link(url_for('static', filename='css/bootstrap.min.css',), ''),
+            '<!-- jQuery JS -->', Script(url_for('static', filename="js/jquery.min.js",), ''),
+            '<!-- Bootstrap JS -->', Script(url_for('static', filename='/js/bootstrap.min.js',), ''),
+
             '<!-- Styles -->', Style('text/css', 'thead { font-weight: bold; color: white; background-color: #007bff; }'),
         ]
 

@@ -27,6 +27,9 @@ setup(
     entry_points = {
         "console_scripts": ['race_proxy = qlmux.race_proxy:raceproxymain'],
         },
+    package_data = {
+        'qlmux': ['static/*/*'],
+        },
     version = version,
     description = "RaceDb Proxy for Brother QL Label Printers and Impinj RFID readers",
     long_description = long_descr,
