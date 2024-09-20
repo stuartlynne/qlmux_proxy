@@ -77,8 +77,8 @@ class DiscoveryThread(Thread, ):
         self.reqMsgs = {}
 
         for sav, oids, pMod in [
-                ('v1', self.ap1_oids, api.protoModules[api.protoVersion1]), 
-                ('v2c', self.ap2c_oids, api.protoModules[api.protoVersion2c])
+                ('v1', self.ap1_oids, api.PROTOCOL_MODULES[api.SNMP_VERSION_1]), 
+                ('v2c', self.ap2c_oids, api.PROTOCOL_MODULES[api.SNMP_VERSION_2C])
         ]:
             if sav != self.av:
                 continue
@@ -186,10 +186,10 @@ class DiscoveryThread(Thread, ):
 
                     # UDP/IPv4
                     udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
-                    transportDispatcher.registerTransport(udp.domainName, udpSocketTransport)
+                    transportDispatcher.registerTransport(udp.DOMAIN_NAME, udpSocketTransport)
 
                     # Pass message to dispatcher
-                    transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("255.255.255.255", 161))
+                    transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.DOMAIN_NAME, ("255.255.255.255", 161))
 
                     # wait for a maximum of 10 responses or time out
                     transportDispatcher.jobStarted(1, maxNumberResponses)
