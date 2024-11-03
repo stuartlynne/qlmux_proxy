@@ -260,10 +260,10 @@ def qlmuxmain():
 
     threads = []
     log('main: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue,), )
-    threads.append(DiscoveryThread(name='broadcast_agent_discovery v1', api_version=api.protoVersion1, 
+    threads.append(DiscoveryThread(name='broadcast_agent_discovery v1',# api_version=api.protoVersion1, 
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue))
-    threads.append(DiscoveryThread(name='broadcast_agent_discoveryv2c', api_version=api.protoVersion2c, 
+    threads.append(DiscoveryThread(name='broadcast_agent_discoveryv2c', #api_version=api.protoVersion2c, 
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue))
     [t.start() for t in threads]
