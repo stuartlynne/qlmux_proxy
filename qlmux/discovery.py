@@ -49,18 +49,22 @@ class DiscoveryThread(Thread, ):
     hostname = "1.3.6.1.2.1.1.5.0"              # Hostname
     sysDescr = "1.3.6.1.2.1.1.1.0"              # System Description
 
+    sysUpTime = "1.3.6.1.2.1.1.3.0"
+
     # recent devices should have MACAddress
     # older Brother printers do not have MACAddress, but have SerialNumber
     # and only support api1
 
     MACAddress = "1.3.6.1.2.1.2.2.1.6.2"        # MRVINREACH-MIB::ifPhysAddress.2
     SerialNumber = "1.3.6.1.2.1.43.5.1.1.17.1"  # Printer-MIB::prtGeneralSerialNumber.1
-    ap1_oids = [ SerialNumber, hostname, sysDescr, ]
-    ap2c_oids = [ SerialNumber, hostname, sysDescr, MACAddress, ] 
+    ap1_oids = [ sysUpTime, SerialNumber, hostname, sysDescr, ]
+    ap2c_oids = [ sysUpTime, SerialNumber, hostname, sysDescr, MACAddress, ] 
+    #ap1_oids = [ sysUpTime, sysDescr, ]
+    #ap2c_oids = [ sysUpTime, sysDescr, ] 
 
 
     def __init__(self, name=None, av=None, snmpDiscoveredQueue=None, stopEvent=None, changeEvent=None, **kwargs):
-        log('Discovery: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue), )
+        #log('Discovery: snmpDiscoveredQueue: %s' % (snmpDiscoveredQueue), )
 
         self.av = av
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
@@ -85,16 +89,22 @@ class DiscoveryThread(Thread, ):
 
             # Build PDU
             reqPDU = pMod.GetRequestPDU()
-            pMod.apiPDU.setDefaults(reqPDU)
+            # XXX pMod.apiPDU.setDefaults(reqPDU)
+            pMod.apiPDU.set_defaults(reqPDU)
             oidList = [(oid, pMod.Null("")) for oid in oids]
-            pMod.apiPDU.setVarBinds( reqPDU, oidList,)
-            pMod.apiPDU.setRequestID(reqPDU, pMod.getNextRequestID())
+            #pMod.apiPDU.setVarBinds( reqPDU, oidList,)
+            pMod.apiPDU.set_varbinds( reqPDU, oidList,)
+            #pMod.apiPDU.setRequestID(reqPDU, pMod.getNextRequestID())
+            pMod.apiPDU.set_request_id(reqPDU, pMod.getNextRequestID())
 
             # Build message
             reqMsg = pMod.Message()
-            pMod.apiMessage.setDefaults(reqMsg)
-            pMod.apiMessage.setCommunity(reqMsg, "public")
-            pMod.apiMessage.setPDU(reqMsg, reqPDU)
+            #pMod.apiMessage.setDefaults(reqMsg)
+            #pMod.apiMessage.setCommunity(reqMsg, "public")
+            #pMod.apiMessage.setPDU(reqMsg, reqPDU)
+            pMod.apiMessage.set_defaults(reqMsg)
+            pMod.apiMessage.set_community(reqMsg, "public")
+            pMod.apiMessage.set_pdu(reqMsg, reqPDU)
 
             self.pMods[sav] = pMod
             self.reqMsgs[sav] = reqMsg
@@ -131,19 +141,20 @@ class DiscoveryThread(Thread, ):
 
     # noinspection PyUnusedLocal,PyUnusedLocal
     def cbRecvFun(self, tav, transportDispatcher, transportDomain, transportAddress, wholeMsg, reqPDU=None):
+        #log(f'cbRecvFun[{tav}:{transportAddress[0]}] wholeMsg: {wholeMsg}', )
         hostname = None
         sysDescr = None
         macAddress = None
         while wholeMsg:
             pmod = self.pMods[tav]
             rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pmod.Message())
-            rspPDU = pmod.apiMessage.getPDU(rspMsg)
-            rspPDURequestID = pmod.apiPDU.getRequestID(rspPDU)
+            rspPDU = pmod.apiMessage.get_pdu(rspMsg)
+            rspPDURequestID = pmod.apiPDU.get_request_id(rspPDU)
             # Check for SNMP errors reported
-            errorStatus = pmod.apiPDU.getErrorStatus(rspPDU)
+            errorStatus = pmod.apiPDU.get_error_status(rspPDU)
             serialNumber = macAddress = hostname = sysDescr = None
             if not errorStatus:
-                for oid, val in pmod.apiPDU.getVarBinds(rspPDU):
+                for oid, val in pmod.apiPDU.get_varbinds(rspPDU):
                     match str(oid):
                         case self.SerialNumber:
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}]SERIALNUMBER {val}', )
@@ -166,7 +177,7 @@ class DiscoveryThread(Thread, ):
                 if hostname or sysDescr:
                     self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
                     self.changeEvent.set()
-                transportDispatcher.jobFinished(1)
+                transportDispatcher.job_finished(1)
             else:
                 log('cbRecvFun[%s:%s] errorStatus: %s' % (tav, transportAddress[0], errorStatus.prettyPrint()), )
                 continue
@@ -174,34 +185,46 @@ class DiscoveryThread(Thread, ):
 
     def broadcast_agent_discovery(self, ):
 
+        #log(f'{self.name}: broadcast_agent_discovery', )
         while not self.stopEvent.is_set():
             # get the network interfaces, these may change over time, e.g. wifi
             #
             nics = self.nic_info()
+            #log(f'{self.name}: nics: {nics}', )
             for j, (av, reqMsg) in enumerate(self.reqMsgs.items()):
                 for i, (nic, address) in enumerate(nics):
+                    #log(f'{self.name}: {av} {nic} {address}', )
                     iface = (address, None)
+                    #log(f'{self.name}: AsyncioDispatcher', )
                     transportDispatcher = AsyncioDispatcher()
-                    transportDispatcher.registerRecvCbFun(partial(self.cbRecvFun, av))
+                    #log(f'{self.name}: registerRecvCbFun', )
+                    try:
+                        transportDispatcher.register_recv_callback(partial(self.cbRecvFun, av))
+                    except Exception as e:
+                        log(f'{self.name}: Exception: {e}', )
+                        log(traceback.format_exc())
+                        raise
 
                     # UDP/IPv4
                     udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
-                    transportDispatcher.registerTransport(udp.DOMAIN_NAME, udpSocketTransport)
+                    transportDispatcher.register_transport(udp.DOMAIN_NAME, udpSocketTransport)
 
                     # Pass message to dispatcher
-                    transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.DOMAIN_NAME, ("255.255.255.255", 161))
+                    transportDispatcher.send_message( encoder.encode(reqMsg), udp.DOMAIN_NAME, ("255.255.255.255", 161))
 
                     # wait for a maximum of 10 responses or time out
-                    transportDispatcher.jobStarted(1, maxNumberResponses)
+                    transportDispatcher.job_started(1, maxNumberResponses)
 
                     # Dispatcher will finish as all jobs counter reaches zero
                     try:
-                        transportDispatcher.runDispatcher(maxWaitForResponses)
+                        transportDispatcher.run_dispatcher(maxWaitForResponses)
                     except:
+                        log(f'{self.name}: Exception: {e}', )
+                        log(traceback.format_exc())
                         raise
                     finally:
                         pass
-                    transportDispatcher.closeDispatcher()
+                    transportDispatcher.close_dispatcher()
 
     def run(self):
 
@@ -211,7 +234,8 @@ class DiscoveryThread(Thread, ):
             try:
                 loop.run_until_complete(self.broadcast_agent_discovery())
             except Exception as e:
-                #log(f'{self.name}: Exception: {e}')
+                log(f'{self.name}: Exception: {e}')
+                log(traceback.format_exc())
                 pass
             loop.stop()
             loop.close()
@@ -230,15 +254,18 @@ def discoveryMain():
     signal.signal(signal.SIGINT, lambda signal, frame: sigintHandler(signal, frame))
 
     snmpDiscoveredQueue = Queue()        # queue for SNMP discovery
+    log('discoveryMain: starting threads', )
     threads = {}
-    threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
-                                   changeEvent=changeEvent, stopEvent=stopEvent, 
-                                   snmpDiscoveredQueue=snmpDiscoveredQueue)
+    if False:
+        threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
+                                       changeEvent=changeEvent, stopEvent=stopEvent, 
+                                       snmpDiscoveredQueue=snmpDiscoveredQueue)
 
     threads['discoverv2'] = DiscoveryThread(name='broadcast_agent_discoveryv2c', av='v2c',
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
+    log('discoveryMain: starting threads', )
     [v.start() for k, v in threads.items()]
 
     while not stopEvent.is_set():
