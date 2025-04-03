@@ -201,9 +201,9 @@ class DiscoveryThread(Thread, ):
                     try:
                         transportDispatcher.register_recv_callback(partial(self.cbRecvFun, av))
                     except Exception as e:
-                        log(f'{self.name}: Exception: {e}', )
+                        log(f'broadcast_agent_discover: {self.name}: Exception: {e}', )
                         log(traceback.format_exc())
-                        raise
+                        break
 
                     # UDP/IPv4
                     udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
@@ -219,7 +219,7 @@ class DiscoveryThread(Thread, ):
                     try:
                         transportDispatcher.run_dispatcher(maxWaitForResponses)
                     except:
-                        log(f'{self.name}: Exception: {e}', )
+                        log(f'broadcast_agent_discover: {self.name}: Exception: {e}', )
                         log(traceback.format_exc())
                         raise
                     finally:
@@ -234,9 +234,9 @@ class DiscoveryThread(Thread, ):
             try:
                 loop.run_until_complete(self.broadcast_agent_discovery())
             except Exception as e:
-                log(f'{self.name}: Exception: {e}')
-                log(traceback.format_exc())
-                pass
+                log(f'Discover.run: {self.name}: Exception: {e}')
+                #log(traceback.format_exc())
+            log(f'Discover.run: {self.name}: loop finished', )
             loop.stop()
             loop.close()
             sleep(1)
