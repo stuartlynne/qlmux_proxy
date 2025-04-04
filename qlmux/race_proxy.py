@@ -21,14 +21,16 @@ from .qlmuxd import QLMuxd
 from .discovery import DiscoveryThread
 from .snmpthreads import PrinterSNMPThread, ImpinjSNMPThread
 from .pythonproxy import ImpinjTCPProxy
+from .netstatus import NetworkThread
 from .utils import log
 
 
 class RaceProxy(Thread):
     def __init__(self, stopEvent=None, changeEvent=None,
-                             printerResetEvent=None, impinjResetEvent=None,
+                 printerResetEvent=None, impinjResetEvent=None,
                  snmpDiscoveredQueue=None, 
                  proxyStatusQueue=None,
+                 networkDiscoveredQueue=None,
                  flaskServer=None, qlmuxd=None):
         super().__init__()
         self.stopEvent = stopEvent
@@ -37,6 +39,7 @@ class RaceProxy(Thread):
         self.impinjResetEvent = impinjResetEvent
         self.snmpDiscoveredQueue = snmpDiscoveredQueue
         self.proxyStatusQueue = proxyStatusQueue
+        self.networkDiscoveredQueue = networkDiscoveredQueue
         self.flaskServer = flaskServer
         self.qlmuxd = qlmuxd
         self.printerStatusQueue = Queue()     # queue for printer status updates
@@ -107,6 +110,9 @@ class RaceProxy(Thread):
             while not self.proxyStatusQueue.empty():
                 #log(f'proxyStatusQueue get: {self.proxyStatusQueue.get()}', )
                 self.flaskServer.proxyUpdate(self.proxyStatusQueue.get())
+            while not self.networkDiscoveredQueue.empty():
+                self.flaskServer.networkUpdate(self.networkDiscoveredQueue.get())
+
 
             # look for timed out printers
             self.printers = {k: v for k, v in self.printers.items() if v.is_alive()}
@@ -134,17 +140,20 @@ def raceproxymain():
 
     printerResetEvent = Event()
     printerResetEvent.clear()
+    netstatResetEvent = Event()
     impinjResetEvent = Event()
     impinjResetEvent.clear()
 
     # create the queues
     snmpDiscoveredQueue = Queue()        # queue for SNMP discovery
+    networkDiscoveredQueue = Queue()        # queue for network discovery
 
 
 
     def sigintHandler(signal, frame):
         log('SIGINT received %s' % (signal,), )
         stopEvent.set()
+        netstatResetEvent.set()
         printerResetEvent.set()
         impinjResetEvent.set()
         changeEvent.set()
@@ -170,6 +179,9 @@ def raceproxymain():
                                    changeEvent=changeEvent, stopEvent=stopEvent, 
                                    snmpDiscoveredQueue=snmpDiscoveredQueue)
 
+    threads['network'] = NetworkThread(stopEvent=stopEvent, changeEvent=changeEvent, 
+                                       networkDiscoveredQueue=networkDiscoveredQueue,)
+
     threads['flaskserver'] = FlaskServer(qlmuxd=threads['qlmuxd'], 
                               printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
                                          impinjProxies={k: v for k, v in threads.items() if isinstance(v, ImpinjTCPProxy)})
@@ -177,6 +189,7 @@ def raceproxymain():
     threads['RaceProxy'] = RaceProxy(stopEvent=stopEvent, changeEvent=changeEvent, 
                              printerResetEvent=printerResetEvent, impinjResetEvent=impinjResetEvent,
                              snmpDiscoveredQueue=snmpDiscoveredQueue, proxyStatusQueue=proxyStatusQueue,
+                             networkDiscoveredQueue=networkDiscoveredQueue,
                              flaskServer=threads['flaskserver'], qlmuxd=threads['qlmuxd'])
 
 
@@ -185,7 +198,7 @@ def raceproxymain():
     stopEvent.wait()
 
     log('main: stopping flaskServer')
-    flaskServer.shutdown()
+    threads['flaskserver'].shutdown()
     log('main: joining threads')
     #[t.join(4) for t in threads if t.is_alive()]
     for k, v in threads.items():
