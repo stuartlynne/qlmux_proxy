@@ -202,7 +202,7 @@ class MiscFunctions(Script):
                 }
                 else if (tableDescription === 'Network Status') {
                     //console.log('addRowsOnMessage: Netsat lastUpdate: %s YYYYYYY', data.lastUpdate);
-                    if (QLmux_lastUpdate !== data.lastUpdate) {{
+                    if (Network_lastUpdate !== data.lastUpdate) {{
                         setTime(tableHeader, data.lastUpdate);
                         Network_lastUpdate = data.lastUpdate;
                     }} 
@@ -227,7 +227,7 @@ class MiscFunctions(Script):
             }
             else if (tableDescription === 'Network Status') {
                 //console.log('addRowsOnMessage: Network Status lastUpdate: %s WWWWWWW', data.lastUpdate);
-                if (QLmux_lastUpdate !== data.lastUpdate) {{
+                if (Network_lastUpdate !== data.lastUpdate) {{
                     setTime(tableHeader, data.lastUpdate);
                     Network_lastUpdate = data.lastUpdate;
                 }} 

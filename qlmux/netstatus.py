@@ -53,6 +53,8 @@ class NetworkThread(Thread):
             while not self.stopEvent.is_set():
                 network_info = self.get_network_info()  # Gather network data
                 self.networkDiscoveredQueue.put(network_info)  # Put in the queue
+                log('network_status: setting changeEvent************************************************')
+                self.changeEvent.set()
                 count += 1
                 time.sleep(5 if count < 4 else 15)  # Sleep to avoid overwhelming the queue
 
@@ -224,7 +226,7 @@ class NetworkThread(Thread):
         log('---------------------------------------')
         #log(f"Network Info: {network_info}")
         for i, info in enumerate(network_info):
-            print(f"Info[{i}]: {info}")
+            log(f"Info[{i}]: {info}")
         log('---------------------------------------')
         return network_info
 
