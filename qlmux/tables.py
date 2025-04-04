@@ -45,7 +45,7 @@ class NetstatTableListener(TableRowListener):
 
     def __init__(self, tableName=None, scriptName=None, addRow=None, headers=None):
         self._addRow = f"""
-            var NetstatHeaders = ['Ethernet', '(gw)', 'WiFi', '(gw)', 'WireGuard', '(gw)', 'Test 1', 'Test 2'];
+            var NetstatHeaders = ['Ethernet', '(gw)', 'WiFi', '(gw)', 'WireGuard', '(gw)', 'Test IPs', ''];
 
 
             const netstatToolTips = {{
