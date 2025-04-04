@@ -49,10 +49,12 @@ class NetworkThread(Thread):
     def run(self):
         log(f'{self.name}: starting')
         try:
+            count = 0
             while not self.stopEvent.is_set():
                 network_info = self.get_network_info()  # Gather network data
                 self.networkDiscoveredQueue.put(network_info)  # Put in the queue
-                time.sleep(2)  # Sleep to avoid overwhelming the queue
+                count += 1
+                time.sleep(5 if count < 4 else 15)  # Sleep to avoid overwhelming the queue
 
         finally:
             log(f'{self.name}: stopping')
@@ -129,7 +131,8 @@ class NetworkThread(Thread):
         # Generalized exclusion list
         startslist = ["lo", "br-", "virb", "veth"]
 
-        wellknown = ["1.1.1.1", "8.8.8.8", "192.168.254.254"]
+        #wellknown = ["1.1.1.1", "8.8.8.8", "192.168.254.254"]
+        wellknown = ["1.1.1.1", "8.8.8.8", ]
         gateways = []
         ipaddrs = []
         ip_ping_times = {}
@@ -239,6 +242,7 @@ def display_network_info(network_info):
 def monitor_network():
     previous_info = None
     
+    count = 0
     while True:
         network_info = get_network_info()
 
@@ -259,7 +263,8 @@ def monitor_network():
         
         log("\033c", end="")  # Clear the screen
         display_network_info()
-        time.sleep(5)
+        count += 1
+        time.sleep(5 if count < 5 else 15)
 
 
 
