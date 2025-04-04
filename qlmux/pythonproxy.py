@@ -158,7 +158,7 @@ class TCPProxy(Thread):
                     log('TCPProxy.run[:%s%s]: KeyError %s' % (self.hostport, self.target, e), )
                     log(traceback.format_exc(), )
 
-        log('TCPProxy.run[%s:%s]: stopEvent is set' % (self.hostportport, self.target), )
+        log('TCPProxy.run[%s:%s]: stopEvent is set' % (self.hostport, self.target), )
 
 
     def on_accept(self):
