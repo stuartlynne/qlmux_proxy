@@ -96,7 +96,7 @@ class FlaskServer(Thread):
                 #replaceTable = self.setNetstatResults()
                 data = 'data: {}\n\n'.format(json.dumps({
                     'networkInfo': self.networkInfo,
-                    'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                    'lastUpdate': self.networkLastUpdate,
                     'replaceTable': True,
                 }, ))
 
@@ -287,6 +287,7 @@ class FlaskServer(Thread):
         self.app1 = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
         self.hostInfo = get_host_info()
         self.networkInfo = []
+        self.networkLastUpdate = None
         #self.app1.logger.removeHandler(default_handler)
         #self.app1.logger.setLevel(logging.ERROR)
         #self.app1.logger.error('FlaskServer: __init__: AAAAA')
@@ -412,8 +413,10 @@ class FlaskServer(Thread):
     # called by the main thread to update
     def networkUpdate(self, networkInfo=None):
         log('FlaskServer.networkUpdate: ----------------------------------------------', )
-        log('FlaskServer.networkUpdate: networkInfo: %s' % networkInfo, )
         self.networkInfo = networkInfo
+        self.networkLastUpdate = datetime.datetime.now().strftime('%H:%M:%S'),
+        log('FlaskServer.networkUpdate: %s' % (self.networkLastUpdate), )
+        log('FlaskServer.networkUpdate: networkInfo: %s' % (self.networkInfo, ), )
         #for info in networkInfo:
         #    ip = info.get('ip', '')
         #    ipPing = info.get('ipPing', False)

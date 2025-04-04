@@ -27,21 +27,21 @@ class MiscFunctions(Script):
         }
 
         document.addEventListener('focus', function(event) {
-            console.log('focus: %s', event.target.tagName);
+            //console.log('focus: %s', event.target.tagName);
             if (event.target.tagName === 'SELECT') {
                 dropdownInUse = true;
             }
         }, true);
 
         document.addEventListener('blur', function(event) {
-            console.log('blur: %s', event.target.tagName);
+            //console.log('blur: %s', event.target.tagName);
             if (event.target.tagName === 'SELECT') {
                 dropdownInUse = false;
             }
         }, true);
 
         document.addEventListener('change', function(event) {
-            console.log('change: %s', event.target.tagName);
+            //console.log('change: %s', event.target.tagName);
             if (event.target.tagName === 'SELECT') {
                 dropdownInUse = false;
             }
@@ -49,8 +49,8 @@ class MiscFunctions(Script):
 
         // Send HTTP request to update server with new status
         function sendPost(cell, url, data) {
-            console.log('sendPost: %s', url);
-            console.dir(data);
+            //console.log('sendPost: %s', url);
+            //console.dir(data);
             cell.style.backgroundColor = 'lightblue';
             var xhr = new XMLHttpRequest();
             xhr.open('POST', url, true);
@@ -135,10 +135,17 @@ class MiscFunctions(Script):
             }
         }
 
+        var QLmux_lastUpdate = '';
+        var Network_lastUpdate = '';
+
         function addRowsOnMessage(addRow, headers, table, tableHeader, tableDescription, data) {
-            console.log('addRowsOnMessage[%s] tableHeader: %s XXXXXXXXXXXXXX', tableDescription, tableHeader);
+            //console.log('addRowsOnMessage[%s] tableHeader: %s XXXXXXXXXXXXXX', tableDescription, tableHeader);
             //console.log('addRowsOnMessage[%s] replaceTable', data.replaceTable);
-            console.dir(data);
+            //console.dir(data);
+            if (data.lastUpdate == '') {{
+                return;
+            }}
+
             //console.log('addRow: %s', addRow);
             // Replace table rows and build new table
             // Clear existing rows
@@ -149,7 +156,7 @@ class MiscFunctions(Script):
             }
             else {
                 if (isDropdownFocused()) {
-                    console.log('addRowsOnMessage[%s]: dropdown focused, skipping update', tableDescription);
+                    //console.log('addRowsOnMessage[%s]: dropdown focused, skipping update', tableDescription);
                     return
                 }
             }
@@ -162,7 +169,7 @@ class MiscFunctions(Script):
 
             if (replaceTable) {
                 if (tableDescription == 'QLmux Proxy') {
-                    console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s replaceTable AAAAAAAAA', data.lastUpdate);
+                    //console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s replaceTable AAAAAAAAA', data.lastUpdate);
                     var headerRow = tableHeader.insertRow();
                     var labelCell = headerRow.insertCell();
                     //labelCell.colSpan = data.header.length - 1 replaceTable;
@@ -187,27 +194,43 @@ class MiscFunctions(Script):
             } 
             else {
                 if (tableDescription === 'QLmux Proxy') {
-                    console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s YYYYYYY', data.lastUpdate);
-                    setTime(tableHeader, data.lastUpdate);
+                    //console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s YYYYYYY', data.lastUpdate);
+                    if (QLmux_lastUpdate !== data.lastUpdate) {{
+                        setTime(tableHeader, data.lastUpdate);
+                        QLmux_lastUpdate = data.lastUpdate;
+                    }} 
                 }
                 else if (tableDescription === 'Network Status') {
+                    //console.log('addRowsOnMessage: Netsat lastUpdate: %s YYYYYYY', data.lastUpdate);
+                    if (QLmux_lastUpdate !== data.lastUpdate) {{
+                        setTime(tableHeader, data.lastUpdate);
+                        Network_lastUpdate = data.lastUpdate;
+                    }} 
                 }
                 else {
                 }
             }
             replaceTable = table.innerHTML === '';
 
-            console.log('addRowsOnMessage: table.innerHTML: %s', table.innerHTML);
-            console.log('addRowsOnMessage: replaceTable: %s', replaceTable);
+            //console.log('addRowsOnMessage: table.innerHTML: %s', table.innerHTML);
+            //console.log('addRowsOnMessage: replaceTable: %s', replaceTable);
 
             // iterate through data and update table values for
             // last seen, status, media, etc.
             // Add new rows with updated data
             if (tableDescription === 'QLmux Proxy') {
-                console.log('addRowsOnMessage: impinj lastUpdate: %s WWWWWWW', data.lastUpdate);
-                setTime(tableHeader, data.lastUpdate);
+                //console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s WWWWWWW', data.lastUpdate);
+                if (QLmux_lastUpdate !== data.lastUpdate) {{
+                    setTime(tableHeader, data.lastUpdate);
+                    QLmux_lastUpdate = data.lastUpdate;
+                }} 
             }
             else if (tableDescription === 'Network Status') {
+                //console.log('addRowsOnMessage: Network Status lastUpdate: %s WWWWWWW', data.lastUpdate);
+                if (QLmux_lastUpdate !== data.lastUpdate) {{
+                    setTime(tableHeader, data.lastUpdate);
+                    Network_lastUpdate = data.lastUpdate;
+                }} 
                 addRow(table, tableHeader, data, replaceTable);
             }
             else {
@@ -222,8 +245,8 @@ class MiscFunctions(Script):
             var eventSource = new EventSource(url);
             eventSource.onmessage = function (event) {
                 var data = JSON.parse(event.data);
-                console.log('addEventSource: %s', data);
-                console.dir(data);
+                //console.log('addEventSource: %s', data);
+                //console.dir(data);
                 addRowsOnMessage(addRow, headers, table, tableHeader, tableDescription, data);
             }
             return eventSource;
