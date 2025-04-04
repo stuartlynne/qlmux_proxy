@@ -170,7 +170,7 @@ class NetworkThread(Thread):
         log('---------------------------------------')
         log('---------------------------------------')
         # Use multiping to ping multiple gateways at once
-        ping_results = multiping(gateways + wellknown + ipaddrs, count=1, timeout=2)
+        ping_results = multiping(gateways + wellknown + ipaddrs, count=2, timeout=3)
         #print(f"Ping Results: {ping_results}")
         #for result in ping_results:
         #    print(f"Ping Result: {result}")
