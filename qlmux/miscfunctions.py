@@ -128,22 +128,26 @@ class MiscFunctions(Script):
                     // Get the last cell in the first row
                     var timeCell = firstRow.cells[firstRow.cells.length - 1];
                     // Update the text content of the last cell
-                    //timeCell.textContent = timeString;
-                    timeCell.textContent = 'AAA';
+                    timeCell.textContent = timeString;
+                    //timeCell.textContent = 'AAA';
                     timeCell.style.textAlign = 'right';
                 }
             }
         }
 
         function addRowsOnMessage(addRow, headers, table, tableHeader, tableDescription, data) {
-            console.log('addRowsOnMessage[%s] tableHeader: %s', tableDescription, tableHeader);
-            console.log('addRowsOnMessage[%s] replaceTable', data.replaceTable);
+            console.log('addRowsOnMessage[%s] tableHeader: %s XXXXXXXXXXXXXX', tableDescription, tableHeader);
+            //console.log('addRowsOnMessage[%s] replaceTable', data.replaceTable);
             console.dir(data);
             //console.log('addRow: %s', addRow);
             // Replace table rows and build new table
             // Clear existing rows
 
-            if (tableDescription !== 'QLmux Proxy') {
+            if (tableDescription === 'QLmux Proxy') {
+            }
+            else if (tableDescription === 'Network Status') {
+            }
+            else {
                 if (isDropdownFocused()) {
                     console.log('addRowsOnMessage[%s]: dropdown focused, skipping update', tableDescription);
                     return
@@ -158,9 +162,10 @@ class MiscFunctions(Script):
 
             if (replaceTable) {
                 if (tableDescription == 'QLmux Proxy') {
+                    console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s replaceTable AAAAAAAAA', data.lastUpdate);
                     var headerRow = tableHeader.insertRow();
                     var labelCell = headerRow.insertCell();
-                    //labelCell.colSpan = data.header.length - 1;
+                    //labelCell.colSpan = data.header.length - 1 replaceTable;
                     labelCell.colSpan = tableHeader.length - 1;
                     labelCell.textContent = tableDescription;
 
@@ -172,9 +177,8 @@ class MiscFunctions(Script):
                     timeCell.style.textAlign = 'right';
                 }
 
-                if (tableDescription !== 'QLmux Proxy') {
+                else {
                     var headerRow = tableHeader.insertRow();
-                    //data.header.forEach(function (header) {
                     for (let i = 0; i < headers.length; i++) {
                         var cell = headerRow.insertCell();
                         cell.textContent = headers[i];
@@ -183,8 +187,12 @@ class MiscFunctions(Script):
             } 
             else {
                 if (tableDescription === 'QLmux Proxy') {
-                    console.log('addRowsOnMessage: impinj lastUpdate: %s', data.lastUpdate);
+                    console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s YYYYYYY', data.lastUpdate);
                     setTime(tableHeader, data.lastUpdate);
+                }
+                else if (tableDescription === 'Network Status') {
+                }
+                else {
                 }
             }
             replaceTable = table.innerHTML === '';
@@ -195,7 +203,14 @@ class MiscFunctions(Script):
             // iterate through data and update table values for
             // last seen, status, media, etc.
             // Add new rows with updated data
-            if (tableDescription !== 'QLmux Proxy') {
+            if (tableDescription === 'QLmux Proxy') {
+                console.log('addRowsOnMessage: impinj lastUpdate: %s WWWWWWW', data.lastUpdate);
+                setTime(tableHeader, data.lastUpdate);
+            }
+            else if (tableDescription === 'Network Status') {
+                addRow(table, tableHeader, data, replaceTable);
+            }
+            else {
                 data.results.forEach(function (device) {
                     addRow(table, tableHeader, device, replaceTable); // XXX??
                 });

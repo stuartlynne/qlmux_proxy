@@ -88,6 +88,25 @@ class FlaskServer(Thread):
         return Response(data, content_type='text/event-stream')
 
     # SSE endpoint to stream rfid reader updates
+    #@app1.route('/netstat_updates')
+    def netstat_updates(self):
+        log('Flaskserver.netstat_updates: ----------------------------------------------', )
+        try:
+            with self.semaphore:
+                #replaceTable = self.setNetstatResults()
+                data = 'data: {}\n\n'.format(json.dumps({
+                    'networkInfo': self.networkInfo,
+                    'lastUpdate': datetime.datetime.now().strftime('%H:%M:%S'),
+                    'replaceTable': True,
+                }, ))
+
+            log('Flaskserver.netstat_updates: Response: %s XXX' % (data) )
+            return Response(data, content_type='text/event-stream')
+        except Exception as e:
+            log('FlaskServer: netstat_updates: error: %s' % e, )
+            log(traceback.format_exc(), )
+
+    # SSE endpoint to stream rfid reader updates
     #@app1.route('/impinj_updates')
     def impinj_updates(self):
         #if time.time() - self.lastImpinjsUpdate > 10:
@@ -267,6 +286,7 @@ class FlaskServer(Thread):
         log('FlaskServer: static: %s' % (os.path.join(os.path.dirname(__file__), 'static')))
         self.app1 = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
         self.hostInfo = get_host_info()
+        self.networkInfo = []
         #self.app1.logger.removeHandler(default_handler)
         #self.app1.logger.setLevel(logging.ERROR)
         #self.app1.logger.error('FlaskServer: __init__: AAAAA')
@@ -277,8 +297,10 @@ class FlaskServer(Thread):
 
         self.app1.add_url_rule('/', 'root', self.root)
         self.app1.add_url_rule('/title_updates', 'title_updates', self.title_updates)
+        self.app1.add_url_rule('/netstat_updates', 'netstat_updates', self.netstat_updates)
         self.app1.add_url_rule('/impinj_updates', 'impinj_updates', self.impinj_updates)
         self.app1.add_url_rule('/printer_updates', 'printer_updates', self.printer_updates)
+
         self.app1.add_url_rule('/printerClicked', 'printerClicked', self.printerClicked, methods=['POST'])
         self.app1.add_url_rule('/impinjClicked', 'impinjClicked', self.impinjClicked, methods=['POST'])
         self.app1.add_url_rule('/updateImpinjStatus', 'updateImpinjStatus', self.updateImpinjStatus, methods=['POST'])
@@ -292,6 +314,7 @@ class FlaskServer(Thread):
 
         super(FlaskServer, self).__init__()
         #self.semaphore = Semaphore()
+        self.netstatResults = []
         self.impinjResults = []
         self.printerResults = []
 
@@ -332,6 +355,9 @@ class FlaskServer(Thread):
                 minutes, seconds = divmod(remainder, 60)
                 return '%02d:%02d:%02d' % (hours, minutes, seconds)
 
+
+    def setNetstatResults(self):
+        return True
 
     def setImpinjResults(self):
         # create the impinjResults list
@@ -382,6 +408,19 @@ class FlaskServer(Thread):
         #log('FlaskServer.setImpinjResults: no change', )
         #log('FlaskServer.setImpinjResults: results: %s' % self.impinjResults, )
         return False
+
+    # called by the main thread to update
+    def networkUpdate(self, networkInfo=None):
+        log('FlaskServer.networkUpdate: ----------------------------------------------', )
+        log('FlaskServer.networkUpdate: networkInfo: %s' % networkInfo, )
+        self.networkInfo = networkInfo
+        #for info in networkInfo:
+        #    ip = info.get('ip', '')
+        #    ipPing = info.get('ipPing', False)
+        #    ipDup = info.get('ipDup', False)
+        #    gw = info.get('gw', '')
+        #    gwPing = info.get('gwPing', False)
+        #    gwDup = info.get('gwDup', False)
 
     # called by the main thread to update
     def proxyUpdate(self, proxyStatus=None):

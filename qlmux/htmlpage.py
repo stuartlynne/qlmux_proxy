@@ -7,7 +7,7 @@ from flask import url_for
 from .utils import log
 
 from .miscfunctions import Script, MiscFunctions
-from .tables import TableRowListener, TitleTableListener, ImpinjsTableListener, PrintersTableListener
+from .tables import TableRowListener, TitleTableListener, NetstatTableListener, ImpinjsTableListener, PrintersTableListener
 
 class HtmlPage:
     def __init__(self, title, apis=None, scripts=None, head=None, elements=None, testpage=None):
@@ -107,16 +107,23 @@ class TestPage:
         ]
 
         title = Table('MyTable0', id='title-table', columns=[], rows=[],)
-        printers = Table('MyTable1', id='printers-table', columns=[], rows=[],)
-        impinjs = Table('MyTable2', id='impinj-table', columns=[], rows=[],)
+        netstats = Table('MyTable1', id='netstats-table', columns=[], rows=[],)
+        printers = Table('MyTable2', id='printers-table', columns=[], rows=[],)
+        impinjs = Table('MyTable3', id='impinj-table', columns=[], rows=[],)
 
         misc = MiscFunctions()
         titleListener = TitleTableListener(tableName='title-table', scriptName='/title_updates', addRow='titleAddRow', headers='TitleHeaders')
+        netstatListener = NetstatTableListener(tableName='netstats-table', scriptName='/netstat_updates', addRow='netstatAddRow', headers='NetstatHeaders')
         printerListener = PrintersTableListener(tableName='printers-table', scriptName='/printer_updates', addRow='printerAddRow', headers='PrinterHeaders')
         impinjListener = ImpinjsTableListener(tableName='impinj-table', scriptName='/impinj_updates', addRow='impinjAddRow', headers='ImpinjHeaders')
 
-        page = HtmlPage('Printers Status', apis=apis, elements=[title, printers, impinjs], scripts=[misc, titleListener, printerListener, impinjListener, ], testpage=None)
+        page = HtmlPage('Printers Status', apis=apis, elements=[title, netstats, printers, impinjs], 
+                        #scripts=[misc, titleListener, printerListener, impinjListener, ], testpage=None)
+                        scripts=[misc, titleListener, netstatListener, impinjListener, printerListener, ], testpage=None)
+                        #scripts=[misc, titleListener, netstatListener, ], testpage=None)
+                        #scripts=[misc, titleListener, ], testpage=None)
         return str(page)
+
         #doc, tag, text = Doc().tagtext()
         #with tag('link', href=self.href, rel='stylesheet'):
         #    text(self.text)

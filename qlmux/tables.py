@@ -1,12 +1,14 @@
 
 from enum import Enum
 from .miscfunctions import Script
+from .utils import log
+
 
 class TableRowListener(Script):
     _addRow = None
     def __init__(self, tableName=None, scriptName=None, addRow=None, headers=None, src=None, text=None, tableDescription=None):
         super(TableRowListener, self).__init__(src=None, text=None, )
-        #log('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), )
+        log('TableRowListener: tableName: %s, scriptName: %s' %(tableName, scriptName), )
         self.tableName = tableName
         self.scriptName = scriptName
         self.tableDescription = tableDescription if tableDescription else 'Devices'
@@ -31,13 +33,154 @@ class TitleTableListener(TableRowListener):
         self._addRow = f"""
             var TitleHeaders = ['Qlmux Proxy', ''];
             function titleAddRow(table, tableheader, device, replaceTable) {{
-                console.log('impinjAddRow: %s replaceTable: %s', device, replaceTable);
+                console.log('titleAddRow: %s replaceTable: %s', device, replaceTable);
             }}
 
             """
 
         super(TitleTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, headers=headers, 
              tableDescription='QLmux Proxy')
+
+class NetstatTableListener(TableRowListener):
+
+    def __init__(self, tableName=None, scriptName=None, addRow=None, headers=None):
+        self._addRow = f"""
+            var NetstatHeaders = ['Ethernet', '(gw)', 'WiFi', '(gw)', 'WireGuard', '(gw)', 'Well Known', '', ''];
+
+
+            const netstatToolTips = {{
+                'Ethernet': 'Current Ethernet connection status',
+                'WiFi': 'Current WiFi connection status',
+                'WireGuard': 'Current WireGuard connection status',
+                'Well Known': 'Ability to ping well known addresses',
+                }}
+
+            function netstatAddDropdownCell(row, device) {{
+                //var cell = row.insertCell();
+                cell.appendChild(select);
+                return cell;
+            }}
+
+            function setListenTip(cell, proxyAddress) {{
+                var tooltip = ''
+                tooltip = netstatToolTips[proxyAddress];
+                if (cell.title !== tooltip) {{
+                    cell.title = tooltip;
+                    console.log('setListenTip: tooltip: %s', tooltip);
+                }}
+            }}
+
+    function set_background_color(ping, dup) {{
+        if (dup) {{
+            return 'coral';
+        }} else if (ping) {{
+            return 'lightgreen';
+        }} else {{
+            return 'yellow'
+        }}
+    }}
+
+    function netstatAddRow(table, tableheader, device, replaceTable) {{
+        console.log('netstatAddRow: %s replaceTable: %s', device, replaceTable);
+        console.dir(device);
+        
+        var row = document.getElementById(device.id);
+
+        if (!row) {{
+            console.log('netstatAddRow: ZZZZ');
+            console.log('netstatAddRow: %s', device);
+            console.dir(device);
+
+            // Create empty arrays to store data for each interface
+            //var interfaces = ['', '', '', ''];
+            //var avgs = ['', '', '', ''];
+            //var wellknown = [];
+            //var wellavg = [];
+
+            color1 = ['','', '','', '','', ];
+            content1 = ['','', '','', '','', ];
+            content2 = ['','', '','', '','', ];
+
+            // Iterate through each network interface in the device data
+            device.networkInfo.forEach(function(info) {{
+                console.log('netstatAddRow: %s', info);
+                console.dir(info);
+                var ipaddr = info.ip;
+                var gwaddr = info.gw;
+                var ipAvg = info.ipAvg;
+                var gwAvg = info.gwAvg;
+
+                ipColor = set_background_color(info.ipPing, info.ipDup);
+                gwColor = set_background_color(info.gwPing, info.gwDup);
+                console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, ipaddr, info.ipDup, info.ipPing, ipColor );
+                console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, gwaddr, info.gwipDup, info.gwipPing, gwColor );
+                if (info.interface.startsWith('en')) {{
+                    content1[0] = ipaddr;
+                    content1[1] = gwaddr;
+                    content2[0] = ipAvg;
+                    content2[1] = gwAvg;
+                    color1[0] = ipColor;
+                    color1[1] = gwColor;
+                }} else if (info.interface.startsWith('wl')) {{
+                    content1[2] = ipaddr;
+                    content1[3] = gwaddr;
+                    content2[2] = ipAvg;
+                    content2[3] = gwAvg;
+                    color1[2] = ipColor;
+                    color1[3] = gwColor;
+                }} else if (info.interface.startsWith('wg')) {{
+                    content1[4] = ipaddr;
+                    content1[5] = gwaddr;
+                    content2[4] = ipAvg;
+                    content2[5] = gwAvg;
+                    color1[4] = ipColor;
+                    color1[5] = gwColor;
+                }} else if (info.interface === 'well known') {{
+                    content1.push(ipaddr);
+                    content2.push(ipAvg);
+                    color1.push(set_background_color(info.ipPing, info.ipDup));
+                }}
+
+            }});
+
+            // Insert the first row for IP and Gateway addresses
+            var row1 = table.insertRow();
+            row1.id = device.id;
+            for (var i = 0; i < content1.length; i++) {{
+                row1.insertCell();
+                var cell = row1.cells[i];
+                cell.style.backgroundColor = color1[i];
+                cell.textContent = content1[i];
+            }}
+
+            // Insert the second row for average ping times
+            var row2 = table.insertRow();
+            row2.id = device.id;
+            for (var i = 0; i < content2.length; i++) {{
+                var rounded = Math.round(content2[i]);
+                if (rounded != 0) {{
+                    row2.insertCell().textContent = rounded + ' ms';
+                }}
+                else {{
+                    row2.insertCell().textContent = '';
+                }}
+                //var cell = row2.cells[i];
+                //cell.style.backgroundColor = color1[i];
+                //cell.textContent = content2[i];
+            }}
+        }}
+
+    }}
+
+
+
+
+
+
+        """
+        super(NetstatTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, 
+                           headers=headers, tableDescription='Network Status')
+
 
 
 class ImpinjsTableListener(TableRowListener):
@@ -55,7 +198,7 @@ class ImpinjsTableListener(TableRowListener):
                 SELECT: 6
                 }}
 
-            const ToolTips = {{
+            const impinjToolTips = {{
                 '127.0.0.1': 'RaceDB RFID_READER_HOST=127.0.0.1',
                 '127.0.0.2': 'RaceDB RFID_READER_HOST=127.0.0.2',
                 '127.0.0.3': 'RaceDB RFID_READER_HOST=127.0.0.3',
@@ -89,7 +232,7 @@ class ImpinjsTableListener(TableRowListener):
 
             function setListenTip(cell, proxyAddress) {{
                 var tooltip = ''
-                tooltip = ToolTips[proxyAddress];
+                tooltip = impinjToolTips[proxyAddress];
                 if (cell.title !== tooltip) {{
                     cell.title = tooltip;
                     console.log('setListenTip: tooltip: %s', tooltip);
