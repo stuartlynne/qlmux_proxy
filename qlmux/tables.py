@@ -48,12 +48,6 @@ class NetstatTableListener(TableRowListener):
             var NetstatHeaders = ['Ethernet', '(gw)', 'WiFi', '(gw)', 'WireGuard', '(gw)', 'Test IPs', ''];
 
 
-            const netstatToolTips = {{
-                'Ethernet': 'Current Ethernet connection status',
-                'WiFi': 'Current WiFi connection status',
-                'WireGuard': 'Current WireGuard connection status',
-                'Well Known': 'Ability to ping well known addresses',
-                }}
 
             function netstatAddDropdownCell(row, device) {{
                 //var cell = row.insertCell();
@@ -61,116 +55,134 @@ class NetstatTableListener(TableRowListener):
                 return cell;
             }}
 
-            function setListenTip(cell, proxyAddress) {{
-                var tooltip = ''
-                tooltip = netstatToolTips[proxyAddress];
-                if (cell.title !== tooltip) {{
-                    cell.title = tooltip;
-                    console.log('setListenTip: tooltip: %s', tooltip);
+            function setTip(text, address) {{
+                return text + ':' + address;
+            }}
+            function setIPTip(text, address) {{
+                return setTip(text+ ' IP', address);
+            }}
+            function setGWTip(text, address) {{
+                return setTip(text+ ' Gateway IP', address);
+            }}
+
+            function set_background_color(ping, dup) {{
+                if (dup) {{
+                    return 'coral';
+                }} else if (ping) {{
+                    return 'lightgreen';
+                }} else {{
+                    return 'yellow'
                 }}
             }}
 
-    function set_background_color(ping, dup) {{
-        if (dup) {{
-            return 'coral';
-        }} else if (ping) {{
-            return 'lightgreen';
-        }} else {{
-            return 'yellow'
-        }}
-    }}
+            function netstatAddRow(table, tableheader, device, replaceTable) {{
+                //console.log('netstatAddRow: %s replaceTable: %s', device, replaceTable);
+                //console.dir(device);
+                
+                var row = document.getElementById(device.id);
 
-    function netstatAddRow(table, tableheader, device, replaceTable) {{
-        console.log('netstatAddRow: %s replaceTable: %s', device, replaceTable);
-        console.dir(device);
-        
-        var row = document.getElementById(device.id);
+                if (!row) {{
+                    //console.log('netstatAddRow: %s', device);
+                    //console.dir(device);
 
-        if (!row) {{
-            console.log('netstatAddRow: ZZZZ');
-            console.log('netstatAddRow: %s', device);
-            console.dir(device);
+                    // Create empty arrays to store data for each interface
+                    //var interfaces = ['', '', '', ''];
+                    //var avgs = ['', '', '', ''];
+                    //var wellknown = [];
+                    //var wellavg = [];
 
-            // Create empty arrays to store data for each interface
-            //var interfaces = ['', '', '', ''];
-            //var avgs = ['', '', '', ''];
-            //var wellknown = [];
-            //var wellavg = [];
+                    color1 = ['','', '','', '','', ];
+                    content1 = ['','', '','', '','', ];
+                    content2 = ['','', '','', '','', ];
+                    tips1 = ['','', '','', '','', ];
 
-            color1 = ['','', '','', '','', ];
-            content1 = ['','', '','', '','', ];
-            content2 = ['','', '','', '','', ];
+                    // Iterate through each network interface in the device data
+                    device.networkInfo.forEach(function(info) {{
+                        //console.log('netstatAddRow: %s', info);
+                        //console.dir(info);
+                        var ipaddr = info.ip;
+                        var gwaddr = info.gw;
+                        var ipAvg = info.ipAvg;
+                        var gwAvg = info.gwAvg;
 
-            // Iterate through each network interface in the device data
-            device.networkInfo.forEach(function(info) {{
-                console.log('netstatAddRow: %s', info);
-                console.dir(info);
-                var ipaddr = info.ip;
-                var gwaddr = info.gw;
-                var ipAvg = info.ipAvg;
-                var gwAvg = info.gwAvg;
+                        ipColor = set_background_color(info.ipPing, info.ipDup);
+                        gwColor = set_background_color(info.gwPing, info.gwDup);
+                        //console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, ipaddr, info.ipDup, info.ipPing, ipColor );
+                        //console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, gwaddr, info.gwipDup, info.gwipPing, gwColor );
+                        if (info.interface.startsWith('en')) {{
+                            content1[0] = ipaddr;
+                            content1[1] = gwaddr;
+                            content2[0] = ipAvg;
+                            content2[1] = gwAvg;
+                            color1[0] = ipColor;
+                            color1[1] = gwColor;
+                            tips1[0] = setIPTip('Ethernet', ipaddr);
+                            tips1[1] = setGWTip('Ethernet', gwaddr);
+                        }} else if (info.interface.startsWith('wl')) {{
+                            content1[2] = ipaddr;
+                            content1[3] = gwaddr;
+                            content2[2] = ipAvg;
+                            content2[3] = gwAvg;
+                            color1[2] = ipColor;
+                            color1[3] = gwColor;
+                            tips1[2] = setIPTip('WiFi', ipaddr);
+                            tips1[3] = setGWTip('WiFi', gwaddr);
+                        }} else if (info.interface.startsWith('wg')) {{
+                            content1[4] = ipaddr;
+                            content1[5] = gwaddr;
+                            content2[4] = ipAvg;
+                            content2[5] = gwAvg;
+                            color1[4] = ipColor;
+                            color1[5] = gwColor;
+                            tips1[4] = setIPTip('WireGuard', ipaddr);
+                            tips1[5] = setGWTip('WireGuard', gwaddr);
+                        }} else if (info.interface === 'well known') {{
+                            content1.push(ipaddr);
+                            content2.push(ipAvg);
+                            color1.push(set_background_color(info.ipPing, info.ipDup));
+                            tips1.push(setIPTip('Test', ipaddr));
+                        }}
 
-                ipColor = set_background_color(info.ipPing, info.ipDup);
-                gwColor = set_background_color(info.gwPing, info.gwDup);
-                console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, ipaddr, info.ipDup, info.ipPing, ipColor );
-                console.log('netstatAddRow: %s addr: %s dup: %s ping: %s %s', info.interface, gwaddr, info.gwipDup, info.gwipPing, gwColor );
-                if (info.interface.startsWith('en')) {{
-                    content1[0] = ipaddr;
-                    content1[1] = gwaddr;
-                    content2[0] = ipAvg;
-                    content2[1] = gwAvg;
-                    color1[0] = ipColor;
-                    color1[1] = gwColor;
-                }} else if (info.interface.startsWith('wl')) {{
-                    content1[2] = ipaddr;
-                    content1[3] = gwaddr;
-                    content2[2] = ipAvg;
-                    content2[3] = gwAvg;
-                    color1[2] = ipColor;
-                    color1[3] = gwColor;
-                }} else if (info.interface.startsWith('wg')) {{
-                    content1[4] = ipaddr;
-                    content1[5] = gwaddr;
-                    content2[4] = ipAvg;
-                    content2[5] = gwAvg;
-                    color1[4] = ipColor;
-                    color1[5] = gwColor;
-                }} else if (info.interface === 'well known') {{
-                    content1.push(ipaddr);
-                    content2.push(ipAvg);
-                    color1.push(set_background_color(info.ipPing, info.ipDup));
+                    }});
+
+                    //console.log('tips1: %s', tips1);
+
+                    // Insert the first row for IP and Gateway addresses
+                    var row1 = table.insertRow();
+                    row1.id = device.id;
+                    for (var i = 0; i < content1.length; i++) {{
+                        row1.insertCell();
+                        var cell = row1.cells[i];
+                        cell.style.backgroundColor = color1[i];
+                        cell.textContent = content1[i];
+                        cell.style.textAlign = 'center';
+                        cell.style.fontWeight = 'bold';
+                        cell.title = tips1[i];
+                    }}
+
+                    // Insert the second row for average ping times
+                    var row2 = table.insertRow();
+                    row2.id = device.id;
+                    row2.style.height = '6px';
+                    for (var i = 0; i < content2.length; i++) {{
+                        var rounded = Math.round(content2[i]);
+                        var cell = row2.insertCell();
+                        cell.style.fontSize = scalepx(cell.style.fontSize, .85);
+                        //cell.style.padding = scalepx(cell.style.padding, .85);
+                        cell.style.textAlign = 'center';
+                        cell.style.fontWeight = 'bold';
+                        cell.style.lineHeight = '6px';
+                        if (rounded != 0) {{
+                            cell.textContent = rounded + ' ms';
+                        }}
+                        else {{
+                            cell.textContent = '';
+                        }}
+                        cell.title = 'Average ping time to ' + content1[i];
+                    }}
                 }}
 
-            }});
-
-            // Insert the first row for IP and Gateway addresses
-            var row1 = table.insertRow();
-            row1.id = device.id;
-            for (var i = 0; i < content1.length; i++) {{
-                row1.insertCell();
-                var cell = row1.cells[i];
-                cell.style.backgroundColor = color1[i];
-                cell.textContent = content1[i];
             }}
-
-            // Insert the second row for average ping times
-            var row2 = table.insertRow();
-            row2.id = device.id;
-            for (var i = 0; i < content2.length; i++) {{
-                var rounded = Math.round(content2[i]);
-                if (rounded != 0) {{
-                    row2.insertCell().textContent = rounded + ' ms';
-                }}
-                else {{
-                    row2.insertCell().textContent = '';
-                }}
-                //var cell = row2.cells[i];
-                //cell.style.backgroundColor = color1[i];
-                //cell.textContent = content2[i];
-            }}
-        }}
-
-    }}
 
 
 
@@ -210,7 +222,7 @@ class ImpinjsTableListener(TableRowListener):
                 var cell = row.cells[ImpinjHeader.SELECT];
                 var select = document.createElement('select');
                 var options = ['127.0.0.1', '127.0.0.2', '127.0.0.3', 'Disabled', ];
-                console.log('impinjAddDropdownCell: options: %s queue: %s', options, device.queue);
+                //console.log('impinjAddDropdownCell: options: %s queue: %s', options, device.queue);
 
                 options.forEach(function (option) {{
                     var opt = document.createElement('option');
@@ -223,7 +235,7 @@ class ImpinjsTableListener(TableRowListener):
                 }});
                 cell.appendChild(select);
                 select.addEventListener('change', function () {{
-                    console.log('impinjAddDropdownCell: id: %s select: %s', device.id, select.value);
+                    //console.log('impinjAddDropdownCell: id: %s select: %s', device.id, select.value);
                     sendPost(cell, '/updateImpinjStatus', {{ id: device.id, proxyAddress: select.value, }});
                     //sendPost(enabledCell, '/updateImpinjStatus', {{ id: device.id, enabled: !device.enabled }});
                 }});
@@ -235,23 +247,25 @@ class ImpinjsTableListener(TableRowListener):
                 tooltip = impinjToolTips[proxyAddress];
                 if (cell.title !== tooltip) {{
                     cell.title = tooltip;
-                    console.log('setListenTip: tooltip: %s', tooltip);
+                    //console.log('setListenTip: tooltip: %s', tooltip);
                 }}
             }}
 
             // Function to add device data to the table
             function impinjAddRow(table, tableheader, device, replaceTable) {{
-                console.log('impinjAddRow: %s replaceTable: %s', device, replaceTable);
-                console.dir(device);
+                //console.log('impinjAddRow: %s replaceTable: %s', device, replaceTable);
+                //console.dir(device);
                 row = document.getElementById(device.id);
 
                 var row = document.getElementById(device.id);
                 if (!row) {{
-                    console.log('impinjAddRow: ZZZZ')
                     var row = table.insertRow();
                     row.id = device.id;
 
-                    for (var i = 0; i < Object.keys(ImpinjHeader).length; i++) {{ row.insertCell(); }}
+                    for (var i = 0; i < Object.keys(ImpinjHeader).length; i++) {{ 
+                        cell = row.insertCell();
+                        cell.style.fontWeight = 'bold';
+                    }}
 
 
                     dropdown = impinjAddDropdownCell(row, device);
@@ -263,8 +277,10 @@ class ImpinjsTableListener(TableRowListener):
 
                     row.cells[ImpinjHeader.NAME].title = device.tooltip0;
                     row.cells[ImpinjHeader.ADDRESS].title = 'Click to open device Web Adminstration Page';
+                    row.cells[ImpinjHeader.ADDRESS].style.textAlign = 'center';
                     row.cells[ImpinjHeader.CLIENT].title = 'IP Address of the client connecting to the RFID Reader';
                     row.cells[ImpinjHeader.STATS].title = 'TCP transfers to/from the RFID Reader';
+                    row.cells[ImpinjHeader.STATS].style.textAlign = 'center';
 
                     row.addEventListener('click', function () {{
                         var impinjName = device.id;
@@ -280,10 +296,11 @@ class ImpinjsTableListener(TableRowListener):
 
                 var cell = row.cells[ImpinjHeader.PROXYPORT];
                 if (cell.textContent !== device.proxyAddress) {{
+                    cell.style.textAlign = 'center';
                     cell.textContent = device.proxyAddress;
                     cell.style.backgroundColor = device.proxyAddress === 'Disabled' ? '' : 'lightgreen';
                     setListenTip(cell, device.proxyAddress);
-                    console.log('impinjAddRow: listen tooltip: %s', row.cells[ImpinjHeader.PROXYPORT].title);
+                    //console.log('impinjAddRow: listen tooltip: %s', row.cells[ImpinjHeader.PROXYPORT].title);
                 }}
 
                 if (
@@ -293,8 +310,8 @@ class ImpinjsTableListener(TableRowListener):
                     row.cells[ImpinjHeader.CLIENT].textContent !== device.clientAddress 
                     ) 
                 {{
-                    console.log('impinjAddRow: set name: %s client: %s connected: %s', 
-                            device.name, device.client, device.connected);
+                    //console.log('impinjAddRow: set name: %s client: %s connected: %s', 
+                    //        device.name, device.client, device.connected);
 
                     // set textContent
                     row.cells[ImpinjHeader.NAME].textContent = device.name;
@@ -318,10 +335,11 @@ class ImpinjsTableListener(TableRowListener):
                     row.cells[ImpinjHeader.CLIENT].style.backgroundColor = backgroundColor;
                     addressCell.style.backgroundColor = backgroundColor;
 
-                    console.log('impinjAddRow: set address: %s', device.address);
+                    //console.log('impinjAddRow: set address: %s', device.address);
                 }}
 
                 setLastSeenCell(row.cells[ImpinjHeader.LASTSEENUPTIME], device.lastSeenUpTime);
+                row.cells[ImpinjHeader.LASTSEENUPTIME].style.fontSize = scalepx(cell.style.fontSize, .85);
             }}
         """
         super(ImpinjsTableListener, self).__init__(tableName=tableName, scriptName=scriptName, addRow=addRow, headers=headers, tableDescription='RFID Readers')
@@ -349,18 +367,18 @@ class PrintersTableListener(TableRowListener):
 
                 options.forEach(function (option) {{
                     var opt = document.createElement('option');
-                    console.log('printersAddDropdownCell: option: %s queue: %s', option, device.queue);
+                    //console.log('printersAddDropdownCell: option: %s queue: %s', option, device.queue);
                     opt.value = option;
                     opt.text = option;
                     if (option.toLowerCase() === device.queue.toLowerCase()) {{
-                        console.log('printersAddDropdownCell: option: %s queue: %s SELECTED', option, device.queue);
+                        //console.log('printersAddDropdownCell: option: %s queue: %s SELECTED', option, device.queue);
                         opt.selected = true;
                     }}
                     select.appendChild(opt);
                 }});
                 cell.appendChild(select);
                 select.addEventListener('change', function () {{
-                    console.log('printersAddDropdownCell: id: %s select: %s', device.id, select.value);
+                    //console.log('printersAddDropdownCell: id: %s select: %s', device.id, select.value);
                     sendPost(cell, '/updatePrinterQueue', {{ id: device.id, queue: select.value }});
                     //sendPost(leftCell, '/updatePrinterStatus', {{ id: device.id, queue: select.value, enabled: !device.left }});
                 }});
@@ -374,14 +392,17 @@ class PrintersTableListener(TableRowListener):
 
             // Function to add device data to the table
             function printerAddRow(table, tableheader, device, replaceTable) {{
-                console.log('printerAddRow: %s replaceTable: %s', device.queue, replaceTable);
-                console.dir(device);
+                //console.log('printerAddRow: %s replaceTable: %s', device.queue, replaceTable);
+                //console.dir(device);
                 row = document.getElementById(device.id);
                 if (!row) {{
-                    console.log('printerAddRow: %s replaceTable: %s', device, replaceTable);
+                    //console.log('printerAddRow: %s replaceTable: %s', device, replaceTable);
                     var row = table.insertRow();
                     row.id = device.id;
-                    for (var i = 0; i < Object.keys(PrinterHeader).length; i++) {{ row.insertCell(); }}
+                    for (var i = 0; i < Object.keys(PrinterHeader).length; i++) {{ 
+                        cell = row.insertCell();
+                        cell.style.fontWeight = 'bold';
+                    }}
                     // column 5 - select
                     dropdown = printersAddDropdownCell(row, device);
                     dropdown.title = 'Select Queue for Printer';
@@ -401,6 +422,7 @@ class PrintersTableListener(TableRowListener):
                     addressLink.href = 'http://' + device.address;
                     addressLink.textContent = device.address;
                     addressLink.target = '_blank';
+                    addressCell.style.textAlign = 'center';
                     addressCell.appendChild(addressLink);
                 }}
                 if (row.cells[PrinterHeader.STATUS].textContent !== device.status) {{
@@ -411,19 +433,23 @@ class PrintersTableListener(TableRowListener):
                     default: color = 'lightcoral'; break;
                     }}
                     row.cells[PrinterHeader.STATUS].style.backgroundColor = color
+                    row.cells[PrinterHeader.STATUS].style.textAlign = 'center';
                 }}
 
                 if (row.cells[PrinterHeader.MEDIA].textContent !== device.media) {{
                     row.cells[PrinterHeader.MEDIA].textContent = device.media;
                     row.cells[PrinterHeader.MEDIA].style.backgroundColor = device.media === '' ? 'lightcoral' : '';
+                    row.cells[PrinterHeader.MEDIA].style.fontSize = scalepx(cell.style.fontSize, .85);
                 }}
 
                 //row.cells[PrinterHeader.UPTIME].textContent = device.SysUpTime;
                 //row.cells[PrinterHeader.LASTSEEN].textContent = device.lastSeen;
                 row.cells[PrinterHeader.LASTSEENUPTIME].textContent = device.lastSeen;
+                row.cells[PrinterHeader.LASTSEENUPTIME].style.fontSize = scalepx(cell.style.fontSize, .85);
 
                 if (row.cells[PrinterHeader.STATS].textContent !== device.stats) {{
                     row.cells[PrinterHeader.STATS].textContent = device.stats;
+                    row.cells[PrinterHeader.STATS].style.textAlign = 'center';
                 }}
 
                 setLastSeenCell(row.cells[PrinterHeader.LASTSEENUPTIME], device.lastSeenUpTime);

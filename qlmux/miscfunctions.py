@@ -171,23 +171,29 @@ class MiscFunctions(Script):
                 if (tableDescription == 'QLmux Proxy') {
                     //console.log('addRowsOnMessage: QLmux Proxy lastUpdate: %s replaceTable AAAAAAAAA', data.lastUpdate);
                     var headerRow = tableHeader.insertRow();
+                    headerRow.style.height = '10px';
                     var labelCell = headerRow.insertCell();
+                    labelCell.style.height = '10px';
                     //labelCell.colSpan = data.header.length - 1 replaceTable;
                     labelCell.colSpan = tableHeader.length - 1;
                     labelCell.textContent = tableDescription;
 
                     var xtimeCell = headerRow.insertCell();
+                    xtimeCell.style.height = '10px';
                     xtimeCell.textContent = data.hostInfo;
                     xtimeCell.style.textAlign = 'right';
                     var timeCell = headerRow.insertCell();
+                    timeCell.style.height = '10px';
                     timeCell.textContent = data.lastUpdate;
                     timeCell.style.textAlign = 'right';
                 }
 
                 else {
                     var headerRow = tableHeader.insertRow();
+                    headerRow.style.height = '10px';
                     for (let i = 0; i < headers.length; i++) {
                         var cell = headerRow.insertCell();
+                        cell.style.height = '10px';
                         cell.textContent = headers[i];
                     };
                 }
@@ -267,6 +273,13 @@ class MiscFunctions(Script):
         function impinjTimeClicked(cell) {
             sendPost(cell, '/impinjTimeClicked', {});
         }
+
+
+        function scalepx(px, scale) {
+            var pxValue = px ? parseInt(px, 10) * scale + 'px' : 16;
+            return (pxValue * scale) + 'px';
+        }
+
 
     """
 
