@@ -38,7 +38,11 @@ pMod = api.PROTOCOL_MODULES[api.SNMP_VERSION_2C]
 reqPDU = pMod.GetRequestPDU()
 pMod.apiPDU.set_defaults(reqPDU)
 pMod.apiPDU.set_varbinds(
-    reqPDU, (("1.3.6.1.2.1.1.1.0", pMod.Null("")), ("1.3.6.1.2.1.1.3.0", pMod.Null("")))
+    reqPDU, (
+        ("1.3.6.1.2.1.1.1.0", pMod.Null("")), 
+        ("1.3.6.1.2.1.1.3.0", pMod.Null("")),
+        ("1.3.6.1.4.1.5.0", pMod.Null("")),
+     )
 )
 
 # Build message
@@ -81,6 +85,7 @@ transportDispatcher.register_transport(udp.DOMAIN_NAME, udpSocketTransport)
 print("Sending request: %s" % (encoder.encode(reqMsg),), file=sys.stderr)
 transportDispatcher.send_message(
     encoder.encode(reqMsg), udp.DOMAIN_NAME, ("255.255.255.255", 161)
+    #encoder.encode(reqMsg), udp.DOMAIN_NAME, ("192.168.40.255", 161)
 )
 print("job started", file=sys.stderr)
 # wait for a maximum of 10 responses or time out

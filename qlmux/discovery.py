@@ -21,6 +21,22 @@ import traceback
 
 from .utils import log
 
+# Compatibility helpers for pysnmp vs pysnmp-lextudio naming.
+def _get_method(obj, snake, camel):
+    return getattr(obj, snake, getattr(obj, camel))
+
+# pysnmp-lextudio no longer supports allow_broadcast in openClientMode.
+# Set SO_BROADCAST on the underlying socket once the transport is created.
+class _BroadcastUdpAsyncioTransport(udp.UdpAsyncioTransport):
+    def connection_made(self, transport):
+        try:
+            sock = transport.get_extra_info("socket")
+            if sock is not None:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        except Exception as e:
+            log(f'_BroadcastUdpAsyncioTransport: failed to set SO_BROADCAST: {e}', )
+        super().connection_made(transport)
+
 # Broadcast manager settings
 maxWaitForResponses = 5
 maxNumberResponses = 20
@@ -79,10 +95,20 @@ class DiscoveryThread(Thread, ):
 
         self.pMods = {}
         self.reqMsgs = {}
+        self._warned_no_nic = False
+
+        if hasattr(api, "PROTOCOL_MODULES"):
+            proto_map = api.PROTOCOL_MODULES
+            v1_key = api.SNMP_VERSION_1
+            v2c_key = api.SNMP_VERSION_2C
+        else:
+            proto_map = api.protoModules
+            v1_key = api.protoVersion1
+            v2c_key = api.protoVersion2c
 
         for sav, oids, pMod in [
-                ('v1', self.ap1_oids, api.PROTOCOL_MODULES[api.SNMP_VERSION_1]), 
-                ('v2c', self.ap2c_oids, api.PROTOCOL_MODULES[api.SNMP_VERSION_2C])
+                ('v1', self.ap1_oids, proto_map[v1_key]),
+                ('v2c', self.ap2c_oids, proto_map[v2c_key])
         ]:
             if sav != self.av:
                 continue
@@ -90,21 +116,27 @@ class DiscoveryThread(Thread, ):
             # Build PDU
             reqPDU = pMod.GetRequestPDU()
             # XXX pMod.apiPDU.setDefaults(reqPDU)
-            pMod.apiPDU.set_defaults(reqPDU)
+            pdu_set_defaults = _get_method(pMod.apiPDU, "set_defaults", "setDefaults")
+            pdu_set_defaults(reqPDU)
             oidList = [(oid, pMod.Null("")) for oid in oids]
             #pMod.apiPDU.setVarBinds( reqPDU, oidList,)
-            pMod.apiPDU.set_varbinds( reqPDU, oidList,)
+            pdu_set_varbinds = _get_method(pMod.apiPDU, "set_varbinds", "setVarBinds")
+            pdu_set_varbinds(reqPDU, oidList)
             #pMod.apiPDU.setRequestID(reqPDU, pMod.getNextRequestID())
-            pMod.apiPDU.set_request_id(reqPDU, pMod.getNextRequestID())
+            pdu_set_request_id = _get_method(pMod.apiPDU, "set_request_id", "setRequestID")
+            pdu_set_request_id(reqPDU, pMod.getNextRequestID())
 
             # Build message
             reqMsg = pMod.Message()
             #pMod.apiMessage.setDefaults(reqMsg)
             #pMod.apiMessage.setCommunity(reqMsg, "public")
             #pMod.apiMessage.setPDU(reqMsg, reqPDU)
-            pMod.apiMessage.set_defaults(reqMsg)
-            pMod.apiMessage.set_community(reqMsg, "public")
-            pMod.apiMessage.set_pdu(reqMsg, reqPDU)
+            msg_set_defaults = _get_method(pMod.apiMessage, "set_defaults", "setDefaults")
+            msg_set_defaults(reqMsg)
+            msg_set_community = _get_method(pMod.apiMessage, "set_community", "setCommunity")
+            msg_set_community(reqMsg, "public")
+            msg_set_pdu = _get_method(pMod.apiMessage, "set_pdu", "setPDU")
+            msg_set_pdu(reqMsg, reqPDU)
 
             self.pMods[sav] = pMod
             self.reqMsgs[sav] = reqMsg
@@ -127,7 +159,7 @@ class DiscoveryThread(Thread, ):
                 name = ix[1]
                 # XXX what is wifi prefix for Linux?
                 # add wifi and ethernet interfaces
-                if not name.startswith(('enp','wlp')):
+                if not name.startswith(('enp','wlp','eno','ens','enx','eth')):
                     continue
                 ip = self.get_ip_address( name )
                 if ip:
@@ -136,7 +168,9 @@ class DiscoveryThread(Thread, ):
             log(f'nic_info: Exception: {e}', )
             log(traceback.format_exc())
       
-        #log(f'nic_info: {nic}', )
+        if not nic and not self._warned_no_nic:
+            log('nic_info: no matching interfaces found', )
+            self._warned_no_nic = True
         return nic
 
     # noinspection PyUnusedLocal,PyUnusedLocal
@@ -148,13 +182,17 @@ class DiscoveryThread(Thread, ):
         while wholeMsg:
             pmod = self.pMods[tav]
             rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pmod.Message())
-            rspPDU = pmod.apiMessage.get_pdu(rspMsg)
-            rspPDURequestID = pmod.apiPDU.get_request_id(rspPDU)
+            msg_get_pdu = _get_method(pmod.apiMessage, "get_pdu", "getPDU")
+            rspPDU = msg_get_pdu(rspMsg)
+            pdu_get_request_id = _get_method(pmod.apiPDU, "get_request_id", "getRequestID")
+            rspPDURequestID = pdu_get_request_id(rspPDU)
             # Check for SNMP errors reported
-            errorStatus = pmod.apiPDU.get_error_status(rspPDU)
+            pdu_get_error_status = _get_method(pmod.apiPDU, "get_error_status", "getErrorStatus")
+            errorStatus = pdu_get_error_status(rspPDU)
             serialNumber = macAddress = hostname = sysDescr = None
             if not errorStatus:
-                for oid, val in pmod.apiPDU.get_varbinds(rspPDU):
+                pdu_get_varbinds = _get_method(pmod.apiPDU, "get_varbinds", "getVarBinds")
+                for oid, val in pdu_get_varbinds(rspPDU):
                     match str(oid):
                         case self.SerialNumber:
                             #log(f'cbRecvFun[{tav}:{transportAddress[0]}]SERIALNUMBER {val}', )
@@ -177,7 +215,12 @@ class DiscoveryThread(Thread, ):
                 if hostname or sysDescr:
                     self.snmpDiscoveredQueue.put((transportAddress[0], hostname, sysDescr, macAddress, serialNumber, ))
                     self.changeEvent.set()
-                transportDispatcher.job_finished(1)
+                try:
+                    disp_job_finished = _get_method(transportDispatcher, "job_finished", "jobFinished")
+                    disp_job_finished(1)
+                except KeyError:
+                    # More responses than maxNumberResponses; ignore extra.
+                    pass
             else:
                 log('cbRecvFun[%s:%s] errorStatus: %s' % (tav, transportAddress[0], errorStatus.prettyPrint()), )
                 continue
@@ -194,37 +237,49 @@ class DiscoveryThread(Thread, ):
             for j, (av, reqMsg) in enumerate(self.reqMsgs.items()):
                 for i, (nic, address) in enumerate(nics):
                     #log(f'{self.name}: {av} {nic} {address}', )
-                    iface = (address, None)
+                    iface = (address, 0)
                     #log(f'{self.name}: AsyncioDispatcher', )
                     transportDispatcher = AsyncioDispatcher()
                     #log(f'{self.name}: registerRecvCbFun', )
                     try:
-                        transportDispatcher.register_recv_callback(partial(self.cbRecvFun, av))
+                        disp_register_recv = _get_method(transportDispatcher, "register_recv_callback", "registerRecvCbFun")
+                        disp_register_recv(partial(self.cbRecvFun, av))
                     except Exception as e:
                         log(f'broadcast_agent_discover: {self.name}: Exception: {e}', )
                         log(traceback.format_exc())
                         break
 
                     # UDP/IPv4
-                    udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(iface=iface, allow_broadcast=True)
-                    transportDispatcher.register_transport(udp.DOMAIN_NAME, udpSocketTransport)
+                    udpSocketTransport = _BroadcastUdpAsyncioTransport().openClientMode(iface=iface)
+                    domain_name = getattr(udp, "DOMAIN_NAME", getattr(udp, "domainName"))
+                    disp_register_transport = _get_method(transportDispatcher, "register_transport", "registerTransport")
+                    disp_register_transport(domain_name, udpSocketTransport)
 
                     # Pass message to dispatcher
-                    transportDispatcher.send_message( encoder.encode(reqMsg), udp.DOMAIN_NAME, ("255.255.255.255", 161))
+                    target = ("255.255.255.255", 161)
+                    disp_send_message = _get_method(transportDispatcher, "send_message", "sendMessage")
+                    disp_send_message(encoder.encode(reqMsg), domain_name, target)
 
-                    # wait for a maximum of 10 responses or time out
-                    transportDispatcher.job_started(1, maxNumberResponses)
+                    # wait for a maximum of responses or time out
+                    disp_job_started = _get_method(transportDispatcher, "job_started", "jobStarted")
+                    disp_job_started(1, maxNumberResponses)
 
                     # Dispatcher will finish as all jobs counter reaches zero
                     try:
-                        transportDispatcher.run_dispatcher(maxWaitForResponses)
-                    except:
+                        if hasattr(transportDispatcher, "run_dispatcher"):
+                            transportDispatcher.run_dispatcher(maxWaitForResponses)
+                        else:
+                            # lextudio AsyncioDispatcher ignores timeout; stop the loop ourselves
+                            transportDispatcher.loop.call_later(maxWaitForResponses, transportDispatcher.loop.stop)
+                            transportDispatcher.runDispatcher(maxWaitForResponses)
+                    except Exception as e:
                         log(f'broadcast_agent_discover: {self.name}: Exception: {e}', )
                         log(traceback.format_exc())
                         raise
                     finally:
                         pass
-                    transportDispatcher.close_dispatcher()
+                    disp_close = _get_method(transportDispatcher, "close_dispatcher", "closeDispatcher")
+                    disp_close()
 
     def run(self):
 

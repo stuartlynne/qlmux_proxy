@@ -1,5 +1,6 @@
 
 import sys
+import socket
 import asyncio
 from threading import Thread, Event
 from queue import Queue
@@ -12,6 +13,22 @@ from pyasn1.codec.ber import encoder, decoder
 from pysnmp.proto import api
 
 from easysnmp import Session
+
+# Compatibility helpers for pysnmp vs pysnmp-lextudio naming.
+def _get_method(obj, snake, camel):
+    return getattr(obj, snake, getattr(obj, camel))
+
+# pysnmp-lextudio no longer supports allow_broadcast in openClientMode.
+# Set SO_BROADCAST on the underlying socket once the transport is created.
+class _BroadcastUdpAsyncioTransport(udp.UdpAsyncioTransport):
+    def connection_made(self, transport):
+        try:
+            sock = transport.get_extra_info("socket")
+            if sock is not None:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        except Exception as e:
+            print(f'_BroadcastUdpAsyncioTransport: failed to set SO_BROADCAST: {e}', file=sys.stderr)
+        super().connection_made(transport)
 
 # Broadcast manager settings
 maxWaitForResponses = 4
@@ -62,21 +79,26 @@ class DiscoveryThread(Thread, ):
 
         # Build PDU
         reqPDU = pMod.GetRequestPDU()
-        pMod.apiPDU.setDefaults(reqPDU)
+        pdu_set_defaults = _get_method(pMod.apiPDU, "set_defaults", "setDefaults")
+        pdu_set_defaults(reqPDU)
 
         oidList = [(oid, pMod.Null("")) for oid in oids]
                 
 
-        pMod.apiPDU.setVarBinds(
+        pdu_set_varbinds = _get_method(pMod.apiPDU, "set_varbinds", "setVarBinds")
+        pdu_set_varbinds(
             reqPDU, 
             oidList,
         )
 
         # Build message
         reqMsg = pMod.Message()
-        pMod.apiMessage.setDefaults(reqMsg)
-        pMod.apiMessage.setCommunity(reqMsg, "public")
-        pMod.apiMessage.setPDU(reqMsg, reqPDU)
+        msg_set_defaults = _get_method(pMod.apiMessage, "set_defaults", "setDefaults")
+        msg_set_defaults(reqMsg)
+        msg_set_community = _get_method(pMod.apiMessage, "set_community", "setCommunity")
+        msg_set_community(reqMsg, "public")
+        msg_set_pdu = _get_method(pMod.apiMessage, "set_pdu", "setPDU")
+        msg_set_pdu(reqMsg, reqPDU)
 
 
         # noinspection PyUnusedLocal,PyUnusedLocal
@@ -85,14 +107,18 @@ class DiscoveryThread(Thread, ):
             sysDescr = None
             while wholeMsg:
                 rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=pMod.Message())
-                rspPDU = pMod.apiMessage.getPDU(rspMsg)
+                msg_get_pdu = _get_method(pMod.apiMessage, "get_pdu", "getPDU")
+                rspPDU = msg_get_pdu(rspMsg)
                 #print('transportAddress: %s' % (transportAddress[0]))
                 # Match response to request
-                if pMod.apiPDU.getRequestID(reqPDU) == pMod.apiPDU.getRequestID(rspPDU):
+                pdu_get_request_id = _get_method(pMod.apiPDU, "get_request_id", "getRequestID")
+                if pdu_get_request_id(reqPDU) == pdu_get_request_id(rspPDU):
                     # Check for SNMP errors reported
-                    errorStatus = pMod.apiPDU.getErrorStatus(rspPDU)
+                    pdu_get_error_status = _get_method(pMod.apiPDU, "get_error_status", "getErrorStatus")
+                    errorStatus = pdu_get_error_status(rspPDU)
                     if not errorStatus:
-                        for oid, val in pMod.apiPDU.getVarBinds(rspPDU):
+                        pdu_get_varbinds = _get_method(pMod.apiPDU, "get_varbinds", "getVarBinds")
+                        for oid, val in pdu_get_varbinds(rspPDU):
                             #print('oid: %s' % (oid,), file=sys.stderr)
                             match str(oid):
                                 case self.hostname:
@@ -108,33 +134,51 @@ class DiscoveryThread(Thread, ):
                         self.discoveryQueue.put((transportAddress[0], hostname, sysDescr))
                         #print(f'{transportAddress[0]}: {hostname} {sysDescr}')
                         self.changeEvent.set()
-                    transportDispatcher.jobFinished(1)
+                    try:
+                        disp_job_finished = _get_method(transportDispatcher, "job_finished", "jobFinished")
+                        disp_job_finished(1)
+                    except KeyError:
+                        # More responses than maxNumberResponses; ignore extra.
+                        pass
             return wholeMsg
 
 
         while not self.stopEvent.is_set():
             transportDispatcher = AsyncioDispatcher()
 
-            transportDispatcher.registerRecvCbFun(cbRecvFun)
+            disp_register_recv = _get_method(transportDispatcher, "register_recv_callback", "registerRecvCbFun")
+            disp_register_recv(cbRecvFun)
 
             # UDP/IPv4
-            udpSocketTransport = udp.UdpAsyncioTransport().openClientMode(allow_broadcast=True)
-            transportDispatcher.registerTransport(udp.domainName, udpSocketTransport)
+            udpSocketTransport = _BroadcastUdpAsyncioTransport().openClientMode()
+            domain_name = getattr(udp, "DOMAIN_NAME", getattr(udp, "domainName"))
+            disp_register_transport = _get_method(transportDispatcher, "register_transport", "registerTransport")
+            disp_register_transport(domain_name, udpSocketTransport)
 
             # Pass message to dispatcher
-            transportDispatcher.sendMessage( encoder.encode(reqMsg), udp.domainName, ("255.255.255.255", 161))
+            target = ("255.255.255.255", 161)
+            disp_send_message = _get_method(transportDispatcher, "send_message", "sendMessage")
+            disp_send_message(encoder.encode(reqMsg), domain_name, target)
 
             # wait for a maximum of 10 responses or time out
-            transportDispatcher.jobStarted(1, maxNumberResponses)
+            disp_job_started = _get_method(transportDispatcher, "job_started", "jobStarted")
+            disp_job_started(1, maxNumberResponses)
 
             # Dispatcher will finish as all jobs counter reaches zero
             try:
-                transportDispatcher.runDispatcher(4)
-            except:
+                # lextudio AsyncioDispatcher ignores timeout; stop the loop ourselves
+                transportDispatcher.loop.call_later(maxWaitForResponses, transportDispatcher.loop.stop)
+                if hasattr(transportDispatcher, "run_dispatcher"):
+                    transportDispatcher.run_dispatcher(maxWaitForResponses)
+                else:
+                    transportDispatcher.loop.call_later(maxWaitForResponses, transportDispatcher.loop.stop)
+                    transportDispatcher.runDispatcher(maxWaitForResponses)
+            except Exception:
                 raise
             finally:
                 pass
-            transportDispatcher.closeDispatcher()
+            disp_close = _get_method(transportDispatcher, "close_dispatcher", "closeDispatcher")
+            disp_close()
 
     def run(self):
         print('[%s] starting run loop' % self.name)
@@ -148,8 +192,7 @@ class DiscoveryThread(Thread, ):
                     oids=self.oids))
                 #loop.run_forever(broadcast_agent_discovery(api_version=self.api_version ))
             except Exception as e:
-                #print(f'{self.name}: Exception: {e}')
-                pass
+                print(f'{self.name}: Exception: {e}', file=sys.stderr)
             print('%s: loop finished' % (self.name,))
             loop.close()
             sleep(1)
@@ -291,4 +334,3 @@ def main(argv):
 if __name__ == '__main__':
     
     main(sys.argv[1:])
-
