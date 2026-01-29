@@ -23,7 +23,13 @@ from .utils import log
 
 # Compatibility helpers for pysnmp vs pysnmp-lextudio naming.
 def _get_method(obj, snake, camel):
-    return getattr(obj, snake, getattr(obj, camel))
+    fn = getattr(obj, snake, None)
+    if fn is not None:
+        return fn
+    fn = getattr(obj, camel, None)
+    if fn is not None:
+        return fn
+    raise AttributeError(f'{type(obj).__name__} has no {snake} or {camel}')
 
 # pysnmp-lextudio no longer supports allow_broadcast in openClientMode.
 # Set SO_BROADCAST on the underlying socket once the transport is created.
