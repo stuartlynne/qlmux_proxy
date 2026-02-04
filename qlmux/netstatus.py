@@ -53,7 +53,7 @@ class NetworkThread(Thread):
             while not self.stopEvent.is_set():
                 network_info = self.get_network_info()  # Gather network data
                 self.networkDiscoveredQueue.put(network_info)  # Put in the queue
-                log('network_status: setting changeEvent************************************************')
+                #log('network_status: setting changeEvent************************************************')
                 self.changeEvent.set()
                 count += 1
                 time.sleep(5 if count < 4 else 15)  # Sleep to avoid overwhelming the queue
@@ -109,9 +109,9 @@ class NetworkThread(Thread):
         network_part = self.get_network_part(ip)
         for other_ip in ip_list:
             if self.get_network_part(other_ip) == network_part:
-                log(f"Checking network for IP: {ip} in list: {ip_list} True")
+                #log(f"Checking network for IP: {ip} in list: {ip_list} True")
                 return True  # Network match found
-        log(f"Checking network for IP: {ip} in list: {ip_list} False")
+        #log(f"Checking network for IP: {ip} in list: {ip_list} False")
         return False  # No network match found
 
     def is_gateway_in_network(self, interface_ip, gateway_ip, subnet_mask):
@@ -172,8 +172,8 @@ class NetworkThread(Thread):
             log(f"Gateway: {interface} {gateway}")
             continue
 
-        log('---------------------------------------')
-        log('---------------------------------------')
+        #log('---------------------------------------')
+        #log('---------------------------------------')
         # Use multiping to ping multiple gateways at once
         ping_results = multiping(gateways + wellknown + ipaddrs, count=2, timeout=3)
         #print(f"Ping Results: {ping_results}")
@@ -189,25 +189,25 @@ class NetworkThread(Thread):
 
         results = {host.address: host.is_alive for host in ping_results}
         
-        log('---------------------------------------')
-        log(f"Results: {results}")
-        log('---------------------------------------')
+        #log('---------------------------------------')
+        #log(f"Results: {results}")
+        #log('---------------------------------------')
         
         # Now, calculate the average ping times for each IP and GW in network_info
         ip_avg_times = {}
         for ip, ip_ping_times in ip_ping_times.items():
             ipAvg = sum(ip_ping_times) / len(ip_ping_times)
             ip_avg_times[ip] = ipAvg
-        print(f"ip_avg_times: {ip_avg_times}")
+        #print(f"ip_avg_times: {ip_avg_times}")
 
         for i, info in enumerate(network_info):
-            log(f"Info[{i}]: {info}")
+            #log(f"Info[{i}]: {info}")
             allips = [_info['ip'] for _info in network_info]
             allgws = [_info['gw'] for _info in network_info]
             otherips = [_info['ip'] for _info in network_info if _info['interface'] != info['interface']]
             othergws = [_info['gw'] for _info in network_info if _info['interface'] != info['interface']]
-            log(f"otherips: {otherips} allips: {allips}")
-            log(f"othergws: {othergws} allgws: {allgws}")
+            #log(f"otherips: {otherips} allips: {allips}")
+            #log(f"othergws: {othergws} allgws: {allgws}")
             info['gwPing'] = results.get(info['gw'], None)
             info['ipPing'] = results.get(info['ip'], None)
             info['ipDup'] = self.check_network_in_list(info['ip'], otherips) if info['ip'] else None
@@ -223,11 +223,11 @@ class NetworkThread(Thread):
                                  'ipAvg': ip_avg_times.get(ip, 0), 'gwAvg': 0,
                                  'gw': None, 'gwPing': None })
 
-        log('---------------------------------------')
+        #log('---------------------------------------')
         #log(f"Network Info: {network_info}")
         for i, info in enumerate(network_info):
             log(f"Info[{i}]: {info}")
-        log('---------------------------------------')
+        #log('---------------------------------------')
         return network_info
 
 

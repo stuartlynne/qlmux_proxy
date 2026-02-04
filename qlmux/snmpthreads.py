@@ -160,7 +160,7 @@ class PrinterSNMPThread(SNMPThread, ):
             except EasySNMPTimeoutError as e:
                 snmpStatus['Status'] = 'NOT AVAILABLE'
                 self.update(snmpStatus)
-                log('PrinterSNMPThread.run[%s:%s] Exception: %s exiting' % (self.hostname, self.hostaddr, e), )
+                log('PrinterSNMPThread.run[%s:%s] timeout: %s' % (self.hostname, self.hostaddr, e), )
                 self.changeEvent.set()
                 return
 
@@ -261,6 +261,10 @@ class ImpinjSNMPThread(SNMPThread, ):
                         snmpStatus[snmp_name] = snmp_value
                     except Exception as e:
                         log('ImpinjSNMPThread.run[%s:%s][%d] Exception: %s' % (self.hostname, self.hostaddr, i, e), )
+            except EasySNMPTimeoutError as e:
+                log('ImpinjSNMPThread.run[%s:%s] timeout: %s' % (self.hostname, self.hostaddr, e), )
+                sleep(2)
+                continue
             except Exception as e:
                 log('ImpinjSNMPThread.run[%s:%s] Exception: %s' % (self.hostname, self.hostaddr, e), )
                 log(traceback.format_exc(), )
@@ -288,4 +292,3 @@ class ImpinjSNMPThread(SNMPThread, ):
 
     #def status(self):
     #    return self.snmpStatus
-
