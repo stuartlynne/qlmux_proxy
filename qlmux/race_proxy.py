@@ -168,7 +168,7 @@ def raceproxymain():
     
     proxyStatusQueue = Queue()         # queue for TCPProxy status updates
 
-    threads = {'127.0.0.%d'%i: ImpinjTCPProxy(hostport=5084+i, stopEvent=stopEvent, changeEvent=changeEvent, proxyStatusQueue=proxyStatusQueue) for i in range(1,4)}
+    threads = {'127.0.0.%d'%i: ImpinjTCPProxy(hostport=5084+i, stopEvent=stopEvent, changeEvent=changeEvent, proxyStatusQueue=proxyStatusQueue) for i in range(0,4)}
     
     threads['qlmuxd'] = QLMuxd(stopEvent=stopEvent, changeEvent=changeEvent, )
     threads['discoveryv1'] = DiscoveryThread(name='broadcast_agent_discovery v1', av='v1',
