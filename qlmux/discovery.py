@@ -14,7 +14,7 @@ from pysnmp.entity import engine, config
 from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
 from pysnmp.carrier.asyncio.dgram import udp
 from pyasn1.codec.ber import encoder, decoder
-from pysnmp.proto import api
+from pysnmp.proto import api, rfc1157, rfc1905
 
 from easysnmp import Session
 import traceback
@@ -228,7 +228,13 @@ class DiscoveryThread(Thread, ):
                     # More responses than maxNumberResponses; ignore extra.
                     pass
             else:
-                log('cbRecvFun[%s:%s] errorStatus: %s' % (tav, transportAddress[0], errorStatus.prettyPrint()), )
+                err_code = int(errorStatus)
+                if tav == 'v1':
+                    no_such_name = rfc1157.errorStatus.namedValues['noSuchName']
+                else:
+                    no_such_name = rfc1905.errorStatus.namedValues['noSuchName']
+                if err_code != no_such_name:
+                    log('cbRecvFun[%s:%s] errorStatus: %s' % (tav, transportAddress[0], errorStatus.prettyPrint()), )
                 continue
         return wholeMsg
 
