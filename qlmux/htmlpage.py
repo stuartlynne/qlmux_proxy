@@ -94,10 +94,14 @@ class TestPage:
 
     def __str__(self):
 
+        favicon = url_for('static', filename='img/qlmux-favicon.svg')
         apis = [ 
             #'<!-- Bootstrap CSS -->', Link('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', ''),
             #'<!-- jQuery JS -->', Script("https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js", ''),
             #'<!-- Bootstrap JS -->', Script('https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'),
+
+            f'<link rel="icon" type="image/svg+xml" href="{favicon}">',
+            f'<link rel="shortcut icon" href="{favicon}">',
 
             '<!-- Bootstrap CSS -->', Link(url_for('static', filename='css/bootstrap.min.css',), ''),
             '<!-- jQuery JS -->', Script(url_for('static', filename="js/jquery.min.js",), ''),
@@ -153,4 +157,3 @@ if __name__ == '__main__':
     ], scripts=[misc], elements=[printers, impinjs])
 
     log(page, )
-

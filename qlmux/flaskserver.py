@@ -15,7 +15,7 @@ from deepdiff import DeepDiff
 #from OpenSSL import SSL
 import ssl
 from werkzeug.serving import make_server
-from flask import Flask, render_template, render_template_string, Response, request
+from flask import Flask, render_template, render_template_string, Response, request, redirect, url_for
 import logging
 from flask.logging import default_handler
 
@@ -49,6 +49,9 @@ class FlaskServer(Thread):
         testpage = TestPage()
         #log('%s' % testpage, )
         return str(testpage)
+
+    def favicon(self):
+        return redirect(url_for('static', filename='img/qlmux-favicon.svg'), code=302)
 
     # SSE endpoint to stream printer updates
     #@app1.route('/printerTitleClicked')
@@ -297,6 +300,7 @@ class FlaskServer(Thread):
         wlog.setLevel(logging.ERROR)
 
         self.app1.add_url_rule('/', 'root', self.root)
+        self.app1.add_url_rule('/favicon.ico', 'favicon', self.favicon)
         self.app1.add_url_rule('/title_updates', 'title_updates', self.title_updates)
         self.app1.add_url_rule('/netstat_updates', 'netstat_updates', self.netstat_updates)
         self.app1.add_url_rule('/impinj_updates', 'impinj_updates', self.impinj_updates)
@@ -616,4 +620,3 @@ def main():
 if __name__ == '__main__':
 
     main()
-
