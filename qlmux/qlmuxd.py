@@ -38,9 +38,9 @@ class QLMuxd(Thread):
     QLMux_Pools = [
         {'name':"small_left",  'queue': PrinterQueue.LEFT,  'listen':9101, 'size': "62mm",  
          'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",             ],}, 
-        {'name':"small_right", 'queue': PrinterQueue.LEFT,  'listen':9102, 'size': "62mm",  
+        {'name':"small_right", 'queue': PrinterQueue.RIGHT,  'listen':9102, 'size': "62mm",  
          'media':["62mm x 100mm",  "62mm x 100mm / 2.4\" x 3.9\"",            ],}, 
-        {'name':"large_left",  'queue': PrinterQueue.RIGHT, 'listen':9103, 'size': "102mm", 
+        {'name':"large_left",  'queue': PrinterQueue.LEFT, 'listen':9103, 'size': "102mm", 
          'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"", ],}, 
         {'name':"large_right", 'queue': PrinterQueue.RIGHT, 'listen':9104, 'size': "102mm", 
          'media':["102mm x 152mm", "102mm / 4\"", "102mm x 152mm / 4\" x 6\"",],}, 
