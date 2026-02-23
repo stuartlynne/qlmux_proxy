@@ -48,6 +48,16 @@ class QLMuxd(Thread):
 
     QLMux_StatusPorts = [ {'name': "status", 'listen': 9100 }, ]
 
+    def _queue_from_hostname(self, hostname):
+        if not hostname:
+            return PrinterQueue.CENTER
+        h = hostname.lower()
+        if h.endswith('left'):
+            return PrinterQueue.LEFT
+        if h.endswith('right'):
+            return PrinterQueue.RIGHT
+        return PrinterQueue.CENTER
+
     def setPrinterQueue(self, printerId=None, queue=None):
         log('QLMuxd.setPrinterQueue[%s]: %s' % (printerId, queue.name))
         if printerId and printerId in self.Printers:
@@ -87,12 +97,22 @@ class QLMuxd(Thread):
         for serialNumber, info in printerInfo.items():
             #log('QLMuxd.printerUpdate[%s]: %s' % (serialNumber, info))
             #log('QLMuxd.printerUpdate[%s:%s]: %s' % (serialNumber, info.get('hostaddr','n/a'), info.get('Status','n/a')))
+            created = False
             if serialNumber not in self.Printers:
                 log('QLMuxd.printerUpdate[%s]: not in Printers' % serialNumber)
                 self.Printers[serialNumber] = Printer(**info)
-            else:
-                #log('QLMuxd.printerUpdate[%s]: updating' % serialNumber)
-                self.Printers[serialNumber].update(**info)
+                created = True
+
+            # Always apply the latest SNMP status/media update.
+            self.Printers[serialNumber].update(**info)
+
+            # Route defaults are derived in backend from hostname on first sighting.
+            if created:
+                hostname = info.get('hostname', self.Printers[serialNumber].hostname)
+                queue = self._queue_from_hostname(hostname)
+                self.Printers[serialNumber].setQueue(queue)
+                log('ROUTECFG:QLMuxd.printerUpdate[%s] hostname=%s assigned_queue=%s' %
+                    (serialNumber, hostname, queue.name))
 
     def run(self):
         # finished
@@ -285,5 +305,4 @@ def qlmuxmain():
 
 if __name__ == '__main__':
     qlmuxmain()
-
 

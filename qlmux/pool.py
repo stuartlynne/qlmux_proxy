@@ -91,13 +91,23 @@ class Pool( object ):
         #log('[%s] printers: %s' % (self.name, self.printers, )
 
         # check if we have any printers
+        available = []
         try:
             # XXX Need to iterate across printers in each pool queue,
             #   desired queue, center, other
             for q in self.queues[self.queue]:
-                available = sorted([(p, v.check(q, self.size)) for p, v in self.printers.items() if v.check(q, self.size)], key=lambda x: x[1])
+                available = []
+                for p, v in self.printers.items():
+                    check = v.check(q, self.size)
+                    if check:
+                        available.append((p, check))
+                available = sorted(available, key=lambda x: x[1])
+                log('POOLROUTE:scan pool=%s size=%s requested=%s candidate_queue=%s available=%d' %
+                    (self.name, self.size, self.queue.name, q.name, len(available)))
                 if len(available) > 0:
                     log('Pool.bestprinter[%s:%s] %s available: %s' % (self.name, self.size, q.name, available))
+                    log('POOLROUTE:choose_queue pool=%s size=%s selected_queue=%s' %
+                        (self.name, self.size, q.name))
                     break
         except Exception as e:
             log('Pool.bestprinter[%s:%s] Exception: %s' % (self.name, self.size, e))
@@ -106,9 +116,12 @@ class Pool( object ):
 
         if len(available) == 0:
             log('Pool.bestprinter[%s:%s] No printers available' % (self.name, self.size))
+            log('POOLROUTE:no_printers pool=%s size=%s requested=%s' % (self.name, self.size, self.queue.name))
             return  
         hostname, lastUsed = available[0]
         printer = self.printers[hostname]
+        log('POOLROUTE:dispatch pool=%s size=%s printer=%s printer_queue=%s lastUsed=%s' %
+            (self.name, self.size, hostname, printer.queue.name, lastUsed))
         printer.add(self, self.jobQueue.get())
         self.jobsForwarded += 1
 

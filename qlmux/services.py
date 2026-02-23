@@ -255,20 +255,21 @@ class Server( object):
                 #print("******************************************")
                 #print("******************************************")
                 client = self.socketMap.get(e)
-                log('Server:select:client:exceptional[%s:%s]:' % (clean.port, client.portname))
+                log('Server:select:client:exceptional[%s:%s]:' % (client.port, client.portname))
 
                 if e in self.poolRecvSockets:
-                    log('Server:select:exceptional:data[%s:%s}: input exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
-                    self.poolPorts[connection.portname].recv(self.socketMap.getallrecvdata(e))
+                    log('Server:select:exceptional:data[%s:%s}: input exception: closing %s' % (client.port, client.portname, e.getpeername()) )
+                    self.poolPorts[client.portname].recv(self.socketMap.getallrecvdata(e))
                     self.poolRecvSockets.remove(e)
 
                 if e in output_fds:
-                    log('Server:select:exceptional:data[%s:%s}: output exception: closing %s' % (connection.port, connection.portname, e.getpeername()) )
+                    log('Server:select:exceptional:data[%s:%s}: output exception: closing %s' % (client.port, client.portname, e.getpeername()) )
                     if e in self.statusSendSockets:
                         self.statusSendSockets.remove(e)
                     elif e in self.printerSendSockets:
                         self.printerSendSockets.remove(e)
-                        client.client.finished(True)
+                        if client.client is not None:
+                            client.client.finished(True)
 
                 e.close()
                 self.socketMap.remove(e)
@@ -381,6 +382,14 @@ class Server( object):
                     log('Server.select[%s:%s]: len: %d WRITABLE' % (client.port, client.portname, len(d)))
                     sent = w.send(d, socket.MSG_DONTWAIT)
                     #sent = w.send(d)
+                    if sent < len(d):
+                        remaining = d[sent:]
+                        client.senddata.insert(0, remaining)
+                        log('SOCKETSEND:partial port=%s name=%s sent=%d remaining=%d' %
+                            (client.port, client.portname, sent, len(remaining)))
+                    else:
+                        log('SOCKETSEND:complete port=%s name=%s sent=%d' %
+                            (client.port, client.portname, sent))
 
                 except Exception as e:
                     log('Server.select[%s:%s]: len: %d WRITABLE ERROR %s' % (client.port, client.portname, len(d), e))
@@ -388,19 +397,21 @@ class Server( object):
                     try:
                         self.printerSendSockets.remove(w)
                     except:
-                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
+                        pass
+                    try:
+                        self.statusSendSockets.remove(w)
+                    except:
                         pass
 
                     # XXX should this be False to requeue?
                     try:
-                        client.client.finished(False)
+                        if client.client is not None:
+                            client.client.finished(False)
                     except:
-                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
                         pass
                     try:
                         self.socketMap.remove(w)
                     except:
-                        log('Server.select[%s:%s]: CAUGHT exception' % (client.port, client.portname))
                         pass
                 continue
 
